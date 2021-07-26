@@ -1,11 +1,11 @@
-# NCTU HW
+# NCTU HW - FreeBSD SA
 
 ## 📝 作業進度
 
 - [x] HW2 Shell script
-- [] HW3 File server
-- [] HW4 Web server
-- [] HW5 NFS server
+- [ ] HW3 File server
+- [ ] HW4 Web server
+- [ ] HW5 NFS server
 
 ## 📝 作業補充說明
 
@@ -36,6 +36,8 @@
 
 - 共通說明
 
+  - 此自動化僅適用於 FreeBSD
+
   - 配合 vagrant 使用測試用虛擬主機
 
     ```bash
@@ -58,11 +60,11 @@
   - 所有的 ansible-playbook 的變數文件都在 [group_vars](nctu-hw/group_vars), 而 secret 則是在 [vault.yml](nctu-hw/group_vars/nfs/vault.yml) 中
   - 所有 secret 的加密密碼都在 [vpass](nctu-hw/vpass),而執行 ansible-playbook 時也會看 [ansible.cfg](nctu-hw/plays/ansible.cfg) 之密碼設定位置去解密並讀取變數。另外，可以下達指令去做加解密 secret 以編輯 secret
 
-  ```bash
-  cd nctu-hw/plays
-  ansible-vault encrypt $(ls -d ../**/*/vault.yml)
-  ansible-vault decrypt $(ls -d ../**/*/vault.yml)
-  ```
+    ```bash
+    cd nctu-hw/plays
+    ansible-vault encrypt $(ls -d ../**/*/vault.yml)
+    ansible-vault decrypt $(ls -d ../**/*/vault.yml)
+    ```
 
   - 上述的作業幾乎都有做手動部署的記錄，可以參考[這裡](https://www.notion.so/065991228686494a988b5c59c44008ea?v=a7628d2ba8f9406e83bb4cfa9c477d11)
 
