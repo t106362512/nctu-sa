@@ -1,0 +1,125 @@
+---
+# config client ldap FreeBSD
+
+- name: installe client ldap FreeBSD
+  pkgng:
+    name: nss-pam-ldapd
+    state: present
+  tags: nssldap
+- name: active client LDAP FreeBSD
+  lineinfile:
+    dest: '/etc/rc.conf'
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    state: present
+  with_items:
+    - { regexp: '^nscd_enable', line: 'nscd_enable="NO"' }
+    - { regexp: '^nslcd_enable', line: 'nslcd_enable="YES"' }
+    - { regexp: '^nslcd_supervisor', line: 'nslcd_supervisor="YES"' }
+  tags: nssldap
+
+- name: Config nss
+  block:
+    - name: Config nsswitch.conf FreeBSD
+      lineinfile:
+        dest: '/etc/nsswitch.conf'
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+        state: present
+      with_items:
+        - { regexp: '^group_compat:', line: 'group_compat: ldap' }
+        - { regexp: '^passwd_compat:', line: 'passwd_compat: ldap' }
+        - { regexp: '^group:', line: 'group: compat' }
+        - { regexp: '^passwd:', line: 'passwd: compat' }
+    - name: Enable LDAP /etc/passwd
+      lineinfile:
+        dest: /etc/passwd
+        regexp: '^\+:'
+        line: '+:*:::::{{ ldap_force_shell }}'
+        state: present
+    - name: Enable LDAP /etc/group
+      lineinfile:
+        dest: /etc/group
+        regexp: '^\+:'
+        line: '+:*:0:'
+        state: present
+    - name: Enable LDAP /etc/master.passwd
+      lineinfile:
+        dest: /etc/master.passwd
+        regexp: '^\+:'
+        line: '+:*:::{{ ldap_force_homedir_by_class }}:0:0:::{{ ldap_force_shell }}'
+        state: present
+      register: pwdmkdb
+    - name: pwd_mkdb
+      command: 'pwd_mkdb /etc/master.passwd'
+      when: pwdmkdb.changed
+  tags: nssldap
+  when: ldap_nss | bool
+
+# verifie l'existence de {{ ldap_force_homedir_by_class }}
+- name: check ldap_force_homedir_by_class
+  lineinfile:
+    dest: /etc/login.conf
+    regexp: '^{{ ldap_force_homedir_by_class }}:'
+    state: absent
+  check_mode: True
+  failed_when: false
+  changed_when: false
+  register: ldapUserClassInLoginConf
+
+# verifie qu'on l'a bien mis nous-memes
+- name: check ldap_force_homedir_by_class by ansible
+  lineinfile:
+    dest: /etc/login.conf
+    regexp: '^# BEGIN ANSIBLE MANAGED ldap_force_homedir_by_class #$'
+    state: absent
+  check_mode: True
+  failed_when: false
+  changed_when: false
+  register: ldapUserClassByAnsible
+
+# place ou modifie le block SI il manque ou qu'on l'a mis ici-meme
+- name: login.conf
+  blockinfile:
+    dest: /etc/login.conf
+    marker: '# {mark} ANSIBLE MANAGED ldap_force_homedir_by_class #'
+    block: |
+      {{ ldap_force_homedir_by_class }}:\
+      	:requirehome:\
+      	:tc=default:
+    validate: cap_mkdb %s
+  notify: rebuild login.conf database
+  when: ldap_force_homedir_by_class | length > 0 and ((ldapUserClassInLoginConf.found == 0) or (ldapUserClassByAnsible.found == 1)) and ldap_nss | bool
+
+# config PAM: ssh ou tout
+- name: stat pam config
+  stat:
+    path: '{{ item[0] }}/{{ item[1] }}'
+  with_nested:
+    - '{{ pam_config_dirs }}'
+    - '{{ pam_ldap_services }}'
+  when: 'pam_ldap_services | count > 0'
+  register: statpam
+
+- name: modify pam configs
+  lineinfile:
+    dest: '{{ item }}'
+    line: 'auth sufficient  {{ pam_ldap_module_path }}  try_first_pass'
+    insertbefore: '^auth\s+required\s+pam_unix'
+    regexp: '^auth\s.*pam_ldap.*$'
+  with_items:
+    - '{{ statpam["results"] | map(attribute="stat") | selectattr("path", "defined") | map(attribute="path") | list }}'
+  register: pamlines
+
+- name: pam new configs
+  block:
+    - name: mkdir
+      file:
+        path: '{{ pam_config_dir }}'
+        state: directory
+    - name: pam service config
+      template:
+        src: pam_service.j2
+        dest: '{{ pam_config_dir }}/{{ item }}'
+      with_items: '{{ pam_ldap_services }}'
+      when: 'item not in statpam["results"] | map(attribute="stat") | selectattr("path", "defined") | map(attribute="path") | join(" ")'

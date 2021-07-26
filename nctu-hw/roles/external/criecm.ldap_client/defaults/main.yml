@@ -1,0 +1,24 @@
+---
+ldap_base: ''
+ldap_uri: ''
+ldap_binddn: ''
+ldap_bindpw: ''
+ldap_etcdir: /etc/ldap
+ldap_passwd_ou: 'ou=People'
+ldap_group_ou: 'ou=Group'
+ldap_passwd_filter: '(objectClass=posixAccount)'
+ldap_authz_filter: '{{ldap_passwd_filter}}'
+ldap_group_filter: '(objectClass=posixGroup)'
+ldap_min_uid: 1000
+nslcd_conf: /etc/nslcd.conf
+ldap_force_shell: /usr/sbin/nologin
+ldap_force_homedir_by_class: ''
+sshd_allow_groups: ''
+ldap_tls_cacert: ''
+pam_ldap_services: []
+pam_config_dirs: [ /etc/pam.d ]
+pam_config_dir: /etc/pam.d
+ldap_validnames: ''
+ldap_nss: True
+ldap_autofs: False
+ldap_starttls: False

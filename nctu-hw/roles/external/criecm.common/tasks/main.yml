@@ -1,0 +1,256 @@
+---
+# taches communes ECM
+- name: os vars
+  include_vars: "{{ includefile }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_os_family }}.yml"
+        - skip: True
+  loop_control:
+    loop_var: includefile
+  tags: vars
+
+- name: get date
+  command: "date +%s"
+  register: now
+  changed_when: False
+  check_mode: False
+  tags: vars
+
+- name: os specific tasks
+  include_tasks: "{{ includefile }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_os_family }}.yml"
+      errors: "ignore"
+  loop_control:
+    loop_var: includefile
+  tags: vars
+
+- name: set_fact do_sys
+  set_fact:
+    do_sys: '{% if "criecm" in ansible_local and
+      ( ( ansible_local.criecm.common.version | default(0) | int ) >= ( common_version | int )
+      or ( ansible_local.criecm.common.last | default(0) | int ) >= ( now.stdout | int - 86400) )
+      and not do_sysadm %}no{% else %}yes{% endif %}'
+    do_smartd: "{% if is_jail or is_vm or not do_smart %}False{% else %}True{% endif %}"
+  tags: vars
+
+- name: display do_sys
+  debug:
+    var: do_sys
+
+- name: stat post-upgrade script
+  stat:
+    path: /root/post-upgrade.sh
+  register: post_upgrade_script
+
+- name: resolv.conf
+  template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    mode: "0644"
+    backup: yes
+  tags: resolver
+  #  when: not is_jail and ( do_sys or do_resolvconf )
+  when: do_sys and do_resolvconf
+
+- name: facts.d
+  file:
+    path: "{{ etcprefix }}/etc/ansible/facts.d"
+    state: directory
+
+# sshd config and keys
+- name: root ssh access and authorized_keys
+  include_tasks: sshd.yml
+  when: do_sys
+  tags: sshd
+
+# pkgs
+- name: install packages
+  include_tasks: "pkgs-{{ ansible_os_family }}.yml"
+  tags: pkg
+
+# root shell config
+- name: root shell
+  include_tasks: rootshell.yml
+  when: do_sys and root_shell | length > 0
+  tags: rootshell
+
+# vimrc
+- name: root vimrc
+  copy:
+    src: vimrc
+    dest: .vimrc
+    force: no
+  tags: vimrc
+
+# gits helper
+- name: gits
+  include_tasks: gits.yml
+  when: gits | union(host_gits) | union(role_gits) | count() > 0 and do_sys
+  tags: gits
+
+# ntp
+- name: config ntpd
+  include_tasks: ntpd.yml
+  when: ntp_servers or ntp_pools and not is_jail and not is_vm and do_sys
+  tags: ntp
+
+# smartd
+- name: lsdisks
+  shell: |
+    smartctl --scan-open | awk '/^\// {gsub("#.*$",""); args=""; dev=$1; for(i=2;i<=NF;i++){args=args" "$i;}printf("smartctl -a %s %s > /dev/null && echo %s %s\n",dev,args,dev,args);}' | sh
+  register: lsdisks
+  ignore_errors: true
+  changed_when: false
+  tags: smartd
+  when: do_sys and do_smartd and not is_vm
+- name: disks fact
+  set_fact:
+    disks: "{{ lsdisks.stdout_lines | default([]) }}"
+    cacheable: true
+  when: do_sys and do_smartd and not is_vm and not disks | default([]) | count > 0
+  tags: smartd
+
+- name: smartd
+  block:
+    - name: get smartd.conf status
+      command: "grep ^/ {{ etcprefix }}/etc/smartd.conf"
+      ignore_errors: yes
+      changed_when: False
+      register: smarted
+    - name: (re)write smartd.conf
+      template:
+        src: smartd.conf.j2
+        dest: "{{ etcprefix }}/etc/smartd.conf"
+        force: "{% if smarted.rc == 0 %}no{% else %}yes{% endif %}"
+      notify: restart smartd
+    - name: ensure smartd started
+      service:
+        name: "{{ smartd_service }}"
+        state: started
+        enabled: true
+  when: do_sys and not is_jail and not is_vm and do_sys and do_smartd and disks | count > 0
+  tags: smartd
+
+# x509
+- name: x509
+  block:
+    - name: Installe CA local
+      copy:
+        src: "{{ x509_ca_file }}"
+        dest: "{{ x509_ca_path }}"
+        owner: root
+        group: "0"
+        mode: "0644"
+    - name: CA local (debian)
+      file:
+        dest: "/usr/share/ca-certificates/local"
+        state: directory
+      when: ansible_os_family == "Debian"
+    - name: register local CA (debian)
+      copy:
+        src: "{{ x509_ca_file }}"
+        dest: /usr/share/ca-certificates/local/local.crt
+      register: accopied
+      when: ansible_os_family == "Debian"
+    - name: ca-certificates.conf
+      lineinfile:
+        line: "local/localac.crt"
+        dest: /etc/ca-certificates.conf
+      when: accopied.changed | default(False)
+      register: certline
+    - name: update-ca-certificates
+      command: "/usr/sbin/update-ca-certificates"
+      when: certline.changed | default(False)
+  when: x509_ca_file and do_sys
+  tags: x509
+
+# syslog
+- name: syslog client
+  include_tasks: "syslog-{{ ansible_os_family }}.yml"
+  when: not is_syslogd and do_sys
+  tags: syslog
+
+# snmp (missing Debian and OpenBSD)
+- name: snmp server
+  include_tasks: "snmpd-{{ ansible_os_family }}.yml"
+  when: not is_jail and not is_vm and do_sys and do_snmp
+  tags: snmpd
+
+- name: Debug the ldap client
+  debug:
+    var: ldap_base, ldap_uri, x509_ca_path
+# ldap TLS client config
+# - name: ldap client
+#   include_tasks: ldap.yml
+#   when: ldap_base | length > 0 and ldap_uri | length > 0 and x509_ca_path | length > 0 and do_sys
+#   tags: ldap
+
+# crons
+- name: crons
+  cron:
+    job: "{{ cron.job | default(omit) }}"
+    minute: "{{ cron.minute | default(omit) }}"
+    hour: "{{ cron.hour | default(omit) }}"
+    day: "{{ cron.day | default(omit) }}"
+    env: "{{ cron.env | default(omit) }}"
+    month: "{{ cron.month | default(omit) }}"
+    special_time: "{{ cron.special_time | default(omit) }}"
+    user: "{{ cron.user | default(omit) }}"
+    weekday: "{{ cron.weekday | default(omit) }}"
+    name: "{{ cron.name | default(omit) }}"
+    state: '{{ cron.state | default("present") }}'
+  with_items: "{{ crons | union(host_crons) | union(role_crons) }}"
+  loop_control:
+    loop_var: cron
+  tags: crons
+  when: crons | union(host_crons) | union(role_crons) | count > 0 and do_sys
+
+# mailrelay
+- name: mailrelay
+  include_tasks: "mailrelay-{{ ansible_os_family }}.yml"
+  when: mailrelay | length > 0 and not is_mailrelay and do_sys
+  tags: mailrelay
+
+- name: alias mail root
+  lineinfile:
+    dest: "{{ mailaliases }}"
+    line: "root: {{ rootmailto }}"
+    regexp: "^root:"
+  notify: newaliases
+  when: rootmailto and do_sys
+  tags: mailclient
+
+- name: export mailrelay var
+  set_fact:
+    mailrelay: "{{ mailrelay }}"
+    cacheable: yes
+  tags: vars,mailrelay
+
+# NUT (Network Ups Tools)
+- name: Network Ups Tools
+  include_tasks: "nut-{{ ansible_os_family }}.yml"
+  when: nut_monitor | length > 0 and not is_vm and not is_jail and do_sys and do_nut
+  tags: nut
+
+# ocsinventory agent
+- name: ocsinventory agent
+  include_tasks: "ocsinventory-{{ ansible_os_family }}.yml"
+  when: ocsinventory_server | length > 0 and not is_jail and not is_vm and do_sys
+  tags: ocsinventory
+
+- name: fact done
+  blockinfile:
+    path: "{{ etcprefix }}/etc/ansible/facts.d/criecm.fact"
+    marker: "# {mark} ANSIBLE criecm.common BLOCK"
+    block: |
+      [common]
+      version={{ common_version }}
+      is_jail={{ is_jail }}
+      is_vm={{ is_vm }}
+      last={{ now.stdout }}
+    create: yes
+  when: do_sys

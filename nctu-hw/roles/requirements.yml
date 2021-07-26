@@ -1,0 +1,40 @@
+---
+roles:
+  - name: criecm.openldap
+    version: 0.1.4
+  - name: criecm.common
+    version: 1.13.1
+  - name: criecm.ldap_client
+    version: 1.0.22
+  - name: criecm.nfs_server
+    version: 0.10.0
+  - name: criecm.nfs_client
+    version: 0.10.0
+  - name: criecm.mariadb
+    version: 0.6.1
+  - name: hanxhx.php
+    version: 2.5.1
+  - name: geerlingguy.nginx
+    version: 3.1.0
+  # - name: vbotka.ansible_lib
+  #   version: 2.0.7
+  # - name: vbotka.freebsd_mysql
+  #   version: 2.0.1
+  # - name: criecm.php-fpm
+  #   version: 0.24.1
+  # - name: JoergFiedler.freebsd-jail-host
+  #   version: v3.1.0
+  # - name: joergfiedler.freebsd-jailed-nginx
+  #   version: v3.4.0
+  # - name: JoergFiedler.freebsd-jailed-mariadb
+  #   version: v1.3.0
+  # - name: joergfiedler.freebsd-jailed-wordpress
+  #   version: v3.1.0
+
+collections:
+  - name: ansible.posix
+    version: 1.2.0
+  - name: community.general
+    version: 3.3.1
+  - name: community.mysql
+    version: 2.1.0

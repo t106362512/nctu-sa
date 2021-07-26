@@ -1,0 +1,147 @@
+---
+- hosts: nfs
+  become: true
+  tasks:
+    - name: Install package
+      pkgng:
+        name: curl, security/py-cryptography
+
+    - name: Fetch /usr/ports
+      command: portsnap fetch extract
+
+    - name: Install /usr/ports/ftp/pure-ftpd
+      shell: make OPTIONS_FILE_SET='ANONRESUME PRIVSEP SCRYPT SENDFILE TLS UPLOADSCRIPT VIRTUALCHROOT' -DBATCH install clean
+      args:
+        chdir: /usr/ports/ftp/pure-ftpd
+
+    - name: Create dir for TLS
+      file:
+        path: "{{ pureftpd_tls_certificate_dir }}"
+        state: directory
+
+    - name: Generate TLS PEM for pure-ftpd
+      command: >
+        openssl req -x509 -nodes -newkey
+        rsa:{{ pureftpd_tls_certificate_openssl.size | default(4096) }}
+        -sha256 -days {{ pureftpd_tls_certificate_openssl.days | default(365) }}
+        -keyout "{{ pureftpd_tls_certificate_pem }}" -out "{{ pureftpd_tls_certificate_pem }}"
+        -subj "/C={{ pureftpd_tls_certificate_openssl.country | default('') }}/ST={{ pureftpd_tls_certificate_openssl.state | default('') }}/L={{ pureftpd_tls_certificate_openssl.locality | default('') }}/O={{ pureftpd_tls_certificate_openssl.org | default('') }}/OU={{ pureftpd_tls_certificate_openssl.unit | default('') }}/CN={{ pureftpd_tls_certificate_openssl.fqdn }}"
+
+    # - name: Push pure-ftpd.conf
+    #   copy:
+    #     src: "{{ playbook_dir }}/files/ftp/etc/pure-ftpd.conf"
+    #     dest: /usr/local/etc/pure-ftpd.conf
+
+    - name: Push custom etc and rc.d
+      copy:
+        src: "{{ playbook_dir }}/files/ftp/etc/"
+        dest: /usr/local/etc/
+        mode: "750"
+
+    - name: Push uploadscript
+      copy:
+        src: "{{ playbook_dir }}/files/ftp/uploadscript.sh"
+        dest: /usr/local/bin/uploadscript.sh
+        mode: "750"
+
+    # #必須絕對路徑
+    # - name: Set pure-uploadscript
+    #   command: pure-uploadscript -Br /usr/ports/ftp/pure-ftpd/test.sh
+
+    - name: Add some group for pure-ftpd
+      group:
+        name: "{{ item }}"
+      with_items:
+        - ftpuser
+        - sysuser
+
+    - name: Add some user for pure-ftpd
+      user:
+        name: "{{ item.name }}"
+        groups: "{{ item.groups }}"
+        shell: "{{ '/bin/sh' if item.name == 'sysadm' else '/usr/sbin/nologin' }}"
+        create_home: false
+        system: true
+        home: /home/ftp
+        password: "{{ password | password_hash('sha512') }}"
+      with_items:
+        - { name: ftp, groups: ftpuser } #For anonymous.
+        - { name: vip, groups: ftpuser }
+        - { name: sysadm, groups: ftpuser }
+
+    - name: Create ftp dir for pure-ftpd service
+      file:
+        path: "{{ item.dir }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+        state: directory
+      with_items:
+        - { dir: /home/ftp, owner: sysadm, group: sysadm, mode: "755" }
+        - { dir: /home/ftp/public, owner: sysadm, group: ftpuser, mode: "775" }
+        - { dir: /home/ftp/upload, owner: sysadm, group: ftpuser, mode: "1775" }
+        - { dir: /home/ftp/hidden, owner: sysadm, group: vip, mode: "751" }
+        - dir: /home/ftp/hidden/treasure
+          owner: sysadm
+          group: vip
+          mode: "755"
+
+    - name: Create the SECRET in hidden.treasure.secret
+      copy:
+        content: "This SECRET create on {{ ansible_date_time.date }}."
+        dest: /home/ftp/hidden/treasure/secret
+        mode: "744"
+
+    - name: Sets default ACL for sysadm on ftp dir[ZFS].
+      command: setfacl -m u:sysadm:full_set:fd:allow /home/ftp
+
+    - name: Set rc.conf
+      lineinfile:
+        dest: /etc/rc.conf
+        line: '{{ item.key }}="{{ item.value }}"'
+        regexp: "^{{ item.key }}="
+      with_items:
+        - { key: pureftpd_enable, value: "YES" }
+        - { key: ftp_watchd_enable, value: "YES" }
+        - key: ftp_watchd_command
+          # value: 'echo ${UPLOAD_USER} has upload file ${1}! | wall'
+          value: "echo Someone upload file! | wall"
+
+    # #直接將使用者綁在系統使用者 vip 和系統群組 ftpuser 上
+    - name: Create virtual user for pure-ftpd
+      shell: "(echo {{ item.vpasswd }}; echo {{ item.vpasswd }}) | pure-pw useradd {{ item.vuser }} -u {{ item.ruser }} -g {{ item.rgroup }} -d {{ item.rhomedir }} -m" # vuser
+      no_log: true
+      with_items:
+        - vuser: ftp-vip1
+          vpasswd: "{{ password }}"
+          ruser: vip
+          rgroup: ftpuser
+          rhomedir: /home/ftp
+
+        - vuser: ftp-vip2
+          vpasswd: "{{ password }}"
+          ruser: vip
+          rgroup: ftpuser
+          rhomedir: /home/ftp
+
+    - name: 建立虛擬 ftp 使用者之 mkdb
+      command: pure-pw mkdb
+
+    - name: Create symbolic link
+      file:
+        src: "/usr/local/etc/{{ item }}"
+        dest: "/etc/{{ item }}"
+        state: link
+      with_items:
+        - pureftpd.pdb
+        - pureftpd.passwd
+
+    - name: Restart services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: true
+      with_items:
+        - sshd
+        - ftp-watchd
+        - pure-ftpd

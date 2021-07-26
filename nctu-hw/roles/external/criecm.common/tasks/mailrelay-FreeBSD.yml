@@ -1,0 +1,27 @@
+---
+# mail via relay
+- name: mailrelay
+  lineinfile:
+    dest: /etc/mail/freebsd.submit.mc
+    line: "FEATURE(`msp', `[{{ mailrelay }}]')"
+    regexp: '^FEATURE\(.?msp'
+  register: domailrelay
+
+- name:
+  block:
+    - name: stop sendmail
+      service:
+        name: sendmail
+        state: stopped
+
+    - name: config relay sendmail
+      command: /usr/bin/make install-submit-cf
+      args:
+        chdir: /etc/mail
+
+    - name: no sendmail_submit
+      lineinfile:
+        dest: /etc/rc.conf
+        line: 'sendmail_submit_enable="NO"'
+        regexp: '^sendmail_submit_enable='
+  when: domailrelay.changed

@@ -1,0 +1,31 @@
+galaxy_info:
+  role_name: common
+  author: Geoffroy Desvernay
+  description: base role for working system here
+  company: Ecole Centrale Marseille
+
+  license: BSD
+
+  min_ansible_version: 2.7
+
+  platforms:
+    - name: FreeBSD
+      versions:
+        - all
+    - name: OpenBSD
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - stretch
+        - buster
+
+  galaxy_tags:
+    - mailviarelay
+    - syslog
+    - ntp
+    - packages
+    - sshd
+    - authorizedkeys
+
+dependencies: []

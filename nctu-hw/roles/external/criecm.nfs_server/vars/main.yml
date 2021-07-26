@@ -1,0 +1,3 @@
+---
+# vars file for criecm.nfs_server
+mynfsd_flags: '{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}{{ nfsd_flags }}'

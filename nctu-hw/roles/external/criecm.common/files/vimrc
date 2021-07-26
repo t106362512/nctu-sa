@@ -1,0 +1,12 @@
+filetype on
+syntax enable
+colorscheme darkblue
+"colorscheme solarized
+set mouse=r
+
+autocmd FileType yaml set tabstop=2|set smarttab|set expandtab|set shiftwidth=2
+autocmd FileType python set tabstop=4|set smarttab|set expandtab|set shiftwidth=4
+
+" ':R ls' will include result of 'ls' command
+:command! -nargs=* -complete=shellcmd R new | setlocal buftype=nofile bufhidden=hide noswapfile | r !<args>
+

@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+# put your one on playbooks/templates to ovverride this one
+autoload -Uz compinit
+compinit
+PS1='%n@%m# '
+HISTFILE=~/.zsh_history
+SAVEHIST=100000
+setopt APPEND_HISTORY
+[ -f ~/.aliases ] && . ~/.aliases

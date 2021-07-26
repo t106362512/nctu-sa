@@ -1,0 +1,54 @@
+---
+- name: restart sshd
+  service:
+    name: '{{ ssh_service_name | default("sshd") }}'
+    state: restarted
+
+- name: reconfigure postfix
+  command: 'dpkg-reconfigure --frontend noninteractive postfix'
+  when: ansible_distribution == 'Debian'
+
+- name: restart smtpd
+  service:
+    name: smtpd
+    state: restarted
+
+- name: newaliases
+  command: /usr/bin/newaliases
+
+- name: restart bsnmpd
+  service:
+    name: bsnmpd
+    state: restarted
+
+- name: restart BSD syslogd
+  service:
+    name: syslogd
+    state: restarted
+
+- name: restart Debian rsyslog
+  service:
+    name: rsyslog
+    state: restarted
+
+- name: restart ntpd
+  service:
+    name: '{{ ntp_service }}'
+    state: restarted
+
+- name: debian regen locales
+  command: /usr/sbin/locale-gen
+
+- name: touch console.log
+  file:
+    path: /var/log/console.log
+    state: touch
+
+- name: restart smartd
+  service:
+    name: '{{ smartd_service }}'
+    state: restarted
+
+- name: post-upgrade
+  command: '/root/post-upgrade.sh'
+  when: post_upgrade_script.stat.exists | default(False)

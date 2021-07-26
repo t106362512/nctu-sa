@@ -1,0 +1,11 @@
+---
+# handlers file for criecm.mariadb
+- name: reload mariadb
+  service:
+    name: '{{ mariadb_service }}'
+    state: restarted
+
+- name: restart mariadb
+  service:
+    name: '{{ mariadb_service }}'
+    state: restarted

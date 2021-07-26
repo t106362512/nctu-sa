@@ -1,0 +1,66 @@
+---
+- hosts: nfs, www, ldapprovider, ldapconsumer, dev
+  gather_facts: false
+  tasks:
+    - name: Bootstrap a host without python installed
+      become: true
+      raw: "pkg install -y python"
+
+    - name: Set timezone
+      become: true
+      file:
+        src: /usr/share/zoneinfo/Asia/Taipei
+        dest: /etc/localtime
+        state: link
+      # timezone: # 該模組在 freebsd12 無效
+      #   name: Asia/Taipei
+
+    - name: Install Bash
+      become: true
+      pkgng:
+        name: bash, neovim
+        state: present
+
+    - name: Get top 5 script and users
+      become: true
+      shell: |
+        top -n max -o res | tee >(awk -vOFS="\t" 'BEGIN{ print "Top Five Processes of WCPU over 0.5\n"} $10>0.5&&NR>8&&NR<15{print $1, $11, $2, $10 }') >(awk -vOFS="\t" 'BEGIN{print "\nTop Five Processes of RES\n"} NR>8&&NR<14 {print $1, $11, $2, $7 }') >(awk -vOFS="\t" 'BEGIN {print "\nBad Users:\n"} $2&&NR>9 {key=$2; count[key]++} END {for ( key in count ) { print (key=="root"?"\033[32m"key"\033[0m ":count[key]>=2?"\033[31m"key"\033[0m ":"\033[33m"key"\033[0m ") } }') | awk '/Top Five Processes of WCPU over 0.5/{p=1}p'
+      args:
+        executable: "/usr/local/bin/bash"
+      register: olsresult
+
+    - debug:
+        var: olsresult.stdout_lines
+
+    - name: Push hw2 one-liner-script
+      copy:
+        src: "{{ playbook_dir }}/files/hw/2"
+        dest: "~/one-liner-script"
+
+- hosts: dev
+  gather_facts: false
+  tasks:
+    - name: Install package
+      become: true
+      pkgng:
+        name: git, exa, bat, zsh, neovim, tmux, curl, openssl, perl5, lftp
+        state: present
+
+    # - name: Install package using port
+    #   community.general.portinstall:
+    #     name: openldap-server24
+    #     state: present
+
+    - name: Push zshrc
+      copy:
+        src: "{{ playbook_dir }}/files/zsh/.zshrc"
+        dest: "~/.zshrc"
+
+    - name: Push zimfw
+      copy:
+        src: "{{ playbook_dir }}/files/zsh/install.zsh"
+        dest: "~/install.zsh"
+
+    - name: Install zimfw
+      shell: zsh ~/install.zsh && echo 'zmodule romkatv/powerlevel10k' >> .zimrc
+      ignore_errors: true

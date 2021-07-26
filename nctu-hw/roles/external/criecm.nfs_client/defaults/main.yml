@@ -1,0 +1,35 @@
+---
+ldap_autofs: False
+# if defined, automount from ldap map
+#ldap_autofs_master_map: auto.master
+ldap_autofs_master_map:
+# limit ldap_autofs_master_map entries (egrep regex)
+# ldap_autofs_egrep_filter:
+#   - /home
+#   - promo2016
+#   - promo2[0-9]{3}
+#   - ext
+ldap_autofs_egrep_filter:
+# automount LDAP sub ({{ldap_base}} from ldap_client added)
+ldap_autofs_ou: ou=automount,
+# ldap autofs value attribute
+ldap_autofs_value_attr: nisMapEntry
+# ldap autofs mapname attribute
+ldap_autofs_mapname_attr: nisMapName
+# ldap autofs entry attribute
+ldap_autofs_entry_attr: cn
+# ldap autofs transform command (if any)
+# used on ldap map values (freebsd)
+#   we have used this to remove vers=3 from mount options:
+# ldap_autofs_transform: "sed 's/,vers=3//'"
+ldap_autofs_transform:
+
+statd_port: 4047
+
+lockd_port: 4045
+
+nfsccb_port: 4048
+
+idmap_domain:
+
+nfs_bind_ips: []

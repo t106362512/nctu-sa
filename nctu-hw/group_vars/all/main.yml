@@ -1,0 +1,18 @@
+---
+ansible_host:
+ansible_fqdn:
+openssl_name: 1.nctu.cs
+openssl_ownca_dir: ~/ownca
+openssl_ownca_name: 1.nctu.cs
+openssl_remote_base_dir: /etc/ssl/nctu
+openssl_remote_private_dir: "{{ openssl_remote_base_dir }}/private"
+openssl_remote_cert_dir: "{{ openssl_remote_base_dir }}/certs"
+openssl_remote_ca_cert_dir: /etc/ssl/certs
+# tls_private_dir: ~/ownca/private
+# rca_openssl_privatekey_path: ../plays/files/certificates/self-sign-server.key
+# rca_openssl_csr_path: ../plays/files/certificates/self-sign-server.csr
+# rca_openssl_certificate: ../plays/files/certificates/self-sign-server.crt
+
+# ldap_openssl_privatekey_path: ../plays/files/certificates/ldap/self-sign-server.key
+# ldap_openssl_csr_path: ../plays/files/certificates/ldap/self-sign-server.csr
+# ldap_openssl_certificate: ../plays/files/certificates/ldap/self-sign-server.crt

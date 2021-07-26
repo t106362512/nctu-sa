@@ -1,0 +1,72 @@
+---
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - openssl_privatekey:
+        path: "{{openssl_privatekey_path}}"
+        size: 2048
+
+    - openssl_csr:
+        path: "{{openssl_csr_path}}"
+        privatekey_path: "{{openssl_privatekey_path}}"
+
+    - openssl_certificate:
+        provider: selfsigned
+        path: "{{openssl_certificate}}"
+        privatekey_path: "{{openssl_privatekey_path}}"
+        csr_path: "{{openssl_csr_path}}"
+
+- hosts: nctu-hw.vagrant.local
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Create a directory if it does not exist
+      file:
+        path: /usr/local/etc/openldap/certificate
+        state: directory
+        mode: "0755"
+    - copy:
+        # src: "{{groups['all']['openssl_certificate']}}"
+        src: ../plays/files/certificates/self-sign-server.crt
+        dest: /usr/local/etc/openldap/certificate/server.crt
+    - copy:
+        src: ../plays/files/certificates/self-sign-server.key
+        dest: /usr/local/etc/openldap/certificate/server.key
+
+    - pkgng:
+        name: openssl, perl5
+        state: present
+
+    - command: |
+        cd /usr/local/etc/openldap/certificate && \
+        c_rehash . && openssl verify -verbose -CApath . server.crt
+
+    - import_role:
+        name: criecm.openldap
+      vars:
+        openldap_schemas:
+          - core
+          - cosine
+          - corba
+          - inetorgperson
+          - misc
+          - nis
+          - openldap
+          - rfc2739
+        openldap_bases:
+          rootdn: cn=admin
+          suffix: dc=1,dc=nctu,dc=cs
+          # includes: [slapd.access]
+          overlays:
+            - dynlist
+            - ppolicy
+            - smbk5pwd
+            - memberof
+          indexes:
+            - ["uid,uidNumber,gidNumber,memberUID", "pres,eq"]
+          slave:
+            rid: 675
+            provider: ldaps://master.ldap.univ.fr:636
+            binddn: cn=bind,dc=dn
+            credentials: bindpw
+            bindmethod: simple

@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+domain {{ ansible_domain }}
+{% if search_domains | default(False) %}
+search{% for sd in search_domains %}{% if ansible_all_ipv4_addresses | union(ansible_all_ipv6_addresses) | ipaddr(sd.network) %} {{ sd.domain }}{% endif %}{% endfor %}
+
+{% endif %}
+{% if is_resolver | bool() %}nameserver 127.0.0.1
+{% endif %}
+{% if ansible_all_ipv4_addresses | count == 0 and ansible_all_ipv6_addresses | count >= 1 and dns64_resolvers | count >= 1 %}
+# DNS64 resolver(s)
+{%   for ns in dns64_resolvers %}
+nameserver {{ ns }}
+{%   endfor %}
+{% else %}
+{%   for ns in resolvers %}
+{%     if ansible_all_ipv4_addresses | union(ansible_all_ipv6_addresses) | ipaddr(ns.network) %}
+nameserver {{ ns.ip }}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+
+{% if ansible_os_family == "FreeBSD" or ansible_os_family == "Debian" %}
+# reduit le timeout a 2s avant de passer au suivant
+options timeout:2
+{% endif %}

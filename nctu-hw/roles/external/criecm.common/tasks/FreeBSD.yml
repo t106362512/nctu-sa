@@ -1,0 +1,114 @@
+---
+# get jail status
+- name: get jail status
+  command: 'sysctl -n security.jail.jailed'
+  failed_when: False
+  check_mode: False
+  changed_when: False
+  register: jail_status
+  tags: vars
+
+- name: register is_jail
+  set_fact:
+    is_jail: True
+    cacheable: yes
+  when: jail_status.rc == 0 and jail_status.stdout == "1"
+  tags: vars
+
+- name: get vm guest status
+  command: 'sysctl -n kern.vm_guest'
+  failed_when: False
+  check_mode: False
+  changed_when: False
+  register: vm_status
+  tags: vars
+
+- name: register is_vm
+  set_fact:
+    is_vm: True
+    cacheable: yes
+  when: ( vm_status.rc == 0 and vm_status.stdout != "none" ) or
+        (jail_status.rc == 0 and jail_status.stdout == "1")
+  tags: vars
+
+- name: timezone
+  block:
+    - name: get timezone
+      command: cat /var/db/zoneinfo
+      register: zoneinfo
+      changed_when: False
+      ignore_errors: True
+      check_mode: False
+    - name: set timezone
+      command: 'tzsetup {{ host_timezone }}'
+      when: zoneinfo.stdout != host_timezone and do_sysadm
+  tags: timezone
+  when: do_sys
+
+- name: cap_mkdb & pwd_mkdb
+  block:
+    - name: get login.conf stats
+      stat:
+        path: '{{ item }}'
+      register: statloginconf
+      with_items:
+        - /etc/login.conf
+        - /etc/login.conf.db
+    - name: cap_mkdb
+      command: 'cap_mkdb /etc/login.conf'
+      when: statloginconf.results[0].stat.mtime > statloginconf.results[1].stat.mtime
+    - name: get master.passwd stats
+      stat:
+        path: '{{ item }}'
+      register: statpwd
+      with_items:
+        - /etc/master.passwd
+        - /etc/pwd.db
+    - name: pwd_mkdb
+      command: 'pwd_mkdb /etc/master.passwd'
+      when: statpwd.results[0].stat.mtime > statpwd.results[1].stat.mtime
+  tags: vars, sanity
+  when: do_sys
+
+- name: list disks
+  block:
+    - name: is mfi ?
+      command: 'mfiutil show drives'
+      check_mode: False
+      failed_when: False
+      register: has_mfi
+    - name: mfip_load in loader.conf
+      lineinfile:
+        dest: /boot/loader.conf
+        line: 'mfip_load="YES"'
+        regexp: '^mfip_load='
+      register: loadrc
+      when: has_mfi.stdout_lines | count() > 0
+    - name: kldload mfip
+      command: 'kldload mfip'
+      ignore_errors: True
+      when: has_mfi.stdout_lines | count() > 0 and loadrc.changed
+  when: do_sys and do_smartd
+
+- name: hardening freebsd
+  block:
+    - name: newsyslog.conf.d
+      file:
+        dest: /usr/local/etc/newsyslog.conf.d
+        state: directory
+    - name: rc.conf
+      lineinfile:
+        dest: /etc/rc.conf
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+      with_items:
+        - { regexp: '^clear_tmp_enable=', line: 'clear_tmp_enable="YES"' }
+    - name: sysctl's
+      lineinfile:
+        dest: /etc/sysctl.conf
+        regexp: '{{ item.regexp }}'
+        line: '{{ item.line }}'
+      with_items: '{{ common_freebsd_sysctls }}'
+      when: 'freebsd_allow_see_other | default(False)'
+  tags: baseconf, security
+  when: do_sys or do_ssi

@@ -1,0 +1,33 @@
+---
+- hosts: nfs
+  become: true
+  pre_tasks:
+    - name: Create nfs_shraes dir for nfs server
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - "{{ nfs_exports | map(attribute='export') }}"
+        - "{{ nfs_shraes | map(attribute='path') }}"
+
+    - name: Mount an NullFS volume
+      ansible.posix.mount:
+        src: "{{ item.export }}"
+        path: "{{ item.mnt }}"
+        state: mounted
+        fstype: nullfs
+      with_items: "{{ nfs_exports }}"
+
+    - name: Set rc.conf
+      lineinfile:
+        dest: /etc/rc.conf
+        line: '{{ item.key }}="{{ item.value }}"'
+        regexp: "^{{ item.key }}="
+      with_items:
+        - { key: nfs_reserved_port_only, value: "YES" }
+
+  roles:
+    - role: criecm.nfs_server
+      become: true
+      # mynfsd_flags: '-t -u -n 10'
+      shares: "{{ nfs_shraes }}"

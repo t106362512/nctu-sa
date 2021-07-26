@@ -1,0 +1,11 @@
+---
+- name: install openldap
+  pkgng:
+    name: openldap-server
+    state: present
+
+- name: rc.conf:slapd_flags
+  lineinfile:
+    line: 'slapd_flags="{{ slapd_rc_flags }}"'
+    regexp: "^slapd_flags="
+    dest: /etc/rc.conf

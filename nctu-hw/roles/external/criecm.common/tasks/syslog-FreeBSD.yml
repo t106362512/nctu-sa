@@ -1,0 +1,40 @@
+---
+# syslog
+- name: mkdir
+  file:
+    dest: /usr/local/etc/syslog.d
+    state: directory
+
+- name: authlog
+  copy:
+    content: |
+      security.*;auth.*             @{{ syslog_auth_server | default(syslog_server) }}
+    dest: /usr/local/etc/syslog.d/authlog.conf
+  notify: restart BSD syslogd
+  when: syslog_auth_server | default(False) or syslog_server | default(False)
+
+- name: common log
+  copy:
+    content: |
+      *.*                           @{{ syslog_server }}
+    dest: /usr/local/etc/syslog.d/centrallog.conf
+  notify: restart BSD syslogd
+  when: syslog_server | default(False)
+
+- name: console.log
+  lineinfile:
+    dest: /etc/syslog.conf
+    line: 'console.info       /var/log/console.log'
+    regexp: '.*console.log'
+    insertafter: 'console.log'
+  notify: touch console.log
+
+- name: get rc flags
+  command: 'sysrc -n syslogd_flags'
+  register: sysrc_syslogd_flags
+  changed_when: False
+  check_mode: False
+
+- name: set syslogd_flags
+  command: 'sysrc syslogd_flags="-c -s"'
+  when: sysrc_syslogd_flags.rc > 0

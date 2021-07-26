@@ -1,0 +1,9 @@
+dn: dc=1,dc=nctu,dc=cs
+dc: 1
+objectClass: top
+objectClass: dcObject
+objectClass: domain
+dn:ou=group,dc=1,dc=nctu,dc=cs objectclass: top
+objectclass: organizationalUnit ou: group
+dn:ou=people,dc=1,dc=nctu,dc=cs objectclass: top
+objectclass: organizationalUnit ou: people

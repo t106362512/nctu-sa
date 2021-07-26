@@ -1,0 +1,39 @@
+---
+- name: gits group
+  group:
+    name: '{{ gits_group }}'
+    state: present
+  when: gits_group | default(False) and gits_root != '/root'
+
+- name: gits
+  file:
+    path: '{{ gits_root }}'
+    state: directory
+    mode: '{{ gits_mode | default("0750") }}'
+    group: '{{ gits_group | default(omit) }}'
+  when: gits_root != '/root'
+
+- name: cle ssh depoiement
+  copy:
+    dest: '/root/.ssh/{{ git_ssh_key }}'
+    src: 'files/{{ git_ssh_key }}'
+    owner: root
+    group: '0'
+    mode: '0600'
+  when: git_ssh_key | length > 0
+
+- name: repos git gits
+  git:
+    dest: '{{ gits_root }}/{{ item.dest }}'
+    repo: '{{ item.repo }}'
+    accept_hostkey: yes
+    key_file: '/root/.ssh/{{ git_ssh_key }}'
+    depth: 2
+    umask: '{{ item.umask | default("0022") }}'
+    version: '{{ item.version | default("master") }}'
+  with_items:
+    - '{{ gits }}'
+    - '{{ host_gits }}'
+    - '{{ group_gits }}'
+    - '{{ role_gits }}'
+  when: git_ssh_key | length > 0

@@ -1,0 +1,87 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+	config.vm.box = "bento/freebsd-12.2"
+	config.vm.box_version = "202104.19.0"
+
+	# vagrant plugin install vagrant-hosts
+	config.vm.provision :hosts do |provisioner|
+		provisioner.autoconfigure = true
+		provisioner.sync_hosts = true
+	end
+  
+	# config.vm.provision "shell", privileged: false, 
+	#   inline: "sudo ln -s /usr/share/zoneinfo/Asia/Taipei /etc/localtime"
+
+	# config.vm.provider "vmware_desktop" do |v|
+	# 	v.gui = true
+	# 	v.vmx["memsize"] = "1024"
+	# 	v.vmx["numvcpus"] = "1"
+	# 	config.vm.provision "shell", privileged: false, 
+	# 		inline: "sudo pkg update && sudo pkg install -y open-vm-tools"
+	# end
+
+	# very slow
+	# config.vm.provision "ansible" do |ansible|
+	# 	ansible.playbook       = "../plays/init.yml"
+	# end
+
+	config.vm.provider :virtualbox do |v|
+		v.gui = false
+		v.customize ["modifyvm", :id, "--cpus", 1]
+		v.customize ["modifyvm", :id, "--memory", 1024]
+		v.customize ['modifyvm', :id, '--nicpromisc1', 'allow-all']
+	end
+
+	config.vm.define "nfs" do |nfs|
+		nfs.vm.hostname = "nfs.1.nctu.cs"
+		nfs.vm.define vm_name = "NFS01-NCTU-CS"
+		nfs.vm.network :private_network, ip: "10.113.0.1"
+		nfs.vm.network :forwarded_port, guest: 22, host: 22221, id: 'ssh'
+		nfs.vm.network :forwarded_port, guest: 21, host: 21, id: 'ftp'
+		(30000..30050).each do |i|
+			# pure-ftpd PassivePortRange
+			nfs.vm.network :forwarded_port, guest: i, host: i
+		end
+	end
+
+	# 因為作業需求, 請在 /etc/hosts 添加 10.113.0.2	www.1.nctu.cs
+	config.vm.define "www" do |www|
+		www.vm.hostname = "www.1.nctu.cs"
+		www.vm.define vm_name = "WWW01-NCTU-CS"
+		www.vm.network :private_network, ip: "10.113.0.2"
+		www.vm.network :forwarded_port, guest: 22, host: 22222, id: 'ssh'
+		www.vm.network :forwarded_port, guest: 3306, host: 3306
+		www.vm.network :forwarded_port, guest: 80, host: 80
+		www.vm.network :forwarded_port, guest: 443, host: 443
+		www.vm.network :forwarded_port, guest: 8080, host: 8080
+		www.vm.network :forwarded_port, guest: 8443, host: 8443
+	end
+
+	config.vm.define "ldapprovider" do |ldapp|
+		ldapp.vm.hostname = "ldapprovider.1.nctu.cs"
+		ldapp.vm.define vm_name = "LDAPPROVIDER01-NCTU-CS"
+		ldapp.vm.network :private_network, ip: "10.113.0.3"
+		ldapp.vm.network :forwarded_port, guest: 22, host: 22223, id: 'ssh'
+	end
+
+	config.vm.define "ldapconsumer" do |ldapc|
+		ldapc.vm.hostname = "ldapconsumer.1.nctu.cs"
+		ldapc.vm.define vm_name = "LDAPCONSUMER01-NCTU-CS"
+		ldapc.vm.network :private_network, ip: "10.113.0.4"
+		ldapc.vm.network :forwarded_port, guest: 22, host: 22224, id: 'ssh'
+	end
+
+	config.vm.define "dev" do |dev|
+		dev.vm.hostname = "dev.1.nctu.cs"
+		dev.vm.define vm_name = "DEV01-NCTU-CS"
+		dev.vm.network :private_network, ip: "10.113.0.5"
+		dev.vm.network :forwarded_port, guest: 22, host: 22225, id: 'ssh'
+		# dev.vm.network :forwarded_port, guest: 21, host: 21, id: 'ftp'
+		# config.vm.synced_folder ".", "/vagrant"
+		dev.vm.synced_folder "../plays/files", "/vagrant"
+		# dev.vm.provision "shell", privileged: true, 
+		# 	inline: "mkdir /mnt/HostShare && vmhgfs-fuse -o allow_other -o uid=1001 .host:/ /mnt/HostShare"
+	end
+end

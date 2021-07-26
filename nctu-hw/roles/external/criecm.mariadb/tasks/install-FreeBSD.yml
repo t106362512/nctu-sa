@@ -1,0 +1,220 @@
+---
+- name: get installed server version
+  command: 'pkg query -x "%v" "mariadb.*-server"'
+  check_mode: False
+  register: pkgvers
+  changed_when: False
+  failed_when: false
+
+- name: fix facts
+  set_fact:
+    # 1. currently running version
+    installed_mariadb_version: '{% if pkgvers.stdout_lines | count > 0 
+      %}{{ pkgvers.stdout_lines[0] }}{% else %}{{ False }}{% endif %}'
+
+- name: fix facts
+  set_fact:
+    mariadb_server_ini: '{% if not installed_mariadb_version or installed_mariadb_version is version("10.4.13",">=") %}{{ mariadb_etcdir }}/conf.d/server.cnf{% else %}{{ mariadb_datadir }}/my.cnf{% endif %}'
+    mariadb_socket: '{% if not installed_mariadb_version or installed_mariadb_version is version("10.4.13",">=") %}/var/run/mysql/mysql.sock{% else %}/tmp/mysql.sock{% endif %}'
+
+- name: get current dbdir
+  command: '/usr/sbin/sysrc -nq mysql_dbdir'
+  changed_when: False
+  failed_when: False
+  check_mode: False
+  register: curdatadir
+
+- name: stat current dbdir
+  stat:
+    path: '{{ curdatadir.stdout }}/ibdata1'
+  register: curdatadb
+
+- name: fact it
+  set_fact:
+    currentdatadir: '{% if curdatadb.stat.exists %}{{ curdatadir.stdout }}{% else %}{{ mariadb_basedir }}{% endif %}'
+
+- name: get innodb_logdir
+  shell: 'eval $(grep ^innodb_log_group_home_dir {{ mariadb_server_ini }} | sed "s/ //g"); echo $innodb_log_group_home_dir'
+  ignore_errors: True
+  changed_when: False
+  check_mode: False
+  register: oldlogdir
+
+- name: set innodblogdir fact
+  set_fact:
+    oldinnodblogdir: '{% if oldlogdir.stdout != "" %}{{ oldlogdir.stdout }}{% else %}{{ False }}{% endif %}'
+
+- name: get pid of mysqld
+  command: pgrep mysqld
+  register: mypids
+  check_mode: False
+  changed_when: False
+  failed_when: False
+
+- name: fix facts
+  set_fact:
+    # 1. currently running one
+    # 2. /data if zfs
+    mariadb_datadir_wanted: '{{ mariadb_datadir }}'
+    mariadb_datadir: '{{ currentdatadir }}{% if mariadb_zfs_base | bool %}/data{% endif %}'
+
+- name: lock version
+  set_fact:
+    mariadb_version: '{{ installed_mariadb_version | regex_replace("^([0-9]+\.[0-9]+)\..*$","\1") }}'
+  when: installed_mariadb_version | default(False) and mariadb_version is version(installed_mariadb_version, '>=') and not do_upgrade_mariadb
+
+- debug:
+    msg: |
+      have {{ installed_mariadb_version }}
+      Want {{ mariadb_version }}
+      Lives {{ mariadb_datadir }}
+      Should {{ mariadb_datadir_wanted }}
+
+- name: zfs layout
+  include_tasks: 'zfs-layout.yml'
+  when: mariadb_zfs_base | length > 0 and ( not curdatadb.stat.exists or do_upgrade_mariadb )
+
+- name: mysql etcdirs
+  file:
+    path: '{{ item }}'
+    state: directory
+  loop:
+    - '{{ mariadb_etcdir }}'
+    - '{{ mariadb_etcdir }}/conf.d'
+
+- name: remove old innodb options
+  ini_file:
+    path: '{{ mariadb_server_ini }}'
+    section: '{{ mariadb_server_ini_section }}'
+    option: '{{ item }}'
+    state: absent
+  loop:
+    - innodb_use_trim
+    - innodb_use_fallocate
+    - innodb_file_format
+  when: installed_mariadb_version and installed_mariadb_version | default(mariadb_version) is version('10.4', '>=')
+  notify: reload mariadb
+
+- name: '{{ mariadb_server_ini }}'
+  ini_file:
+    path: '{{ mariadb_server_ini }}'
+    section: '{{ mariadb_server_ini_section }}'
+    option: '{{ item.key }}'
+    value: '{{ item.value }}'
+    allow_no_value: yes
+  loop: '{{ my_cnf_mysqld_default | combine(my_cnf_mysqld) | dict2items }}'
+  notify: reload mariadb
+
+- name: syslog
+  block:
+    - name: no log-errors
+      ini_file:
+        path: '{{ mariadb_server_ini }}'
+        section: '{{ mariadb_server_ini_section }}'
+        option: log-errors
+        state: absent
+      when: mariadb_use_syslog
+    - name: get rc args
+      command: 'sysrc -qn mysql_args'
+      register: getrcargs
+      failed_when: False
+      changed_when: False
+      check_mode: False
+    - name: syslog in rc.conf
+      lineinfile:
+        dest: /etc/rc.conf
+        line: 'mysql_args="{{ getrcargs.stdout }} --syslog"'
+        regexp: '^mysql_args='
+      when: getrcargs.stdout is not search("--syslog")
+  when: mariadb_use_syslog
+
+- name: backup old my.cnf
+  copy:
+    src: '{{ mariadb_basedir }}/my.cnf'
+    dest: '{{ mariadb_basedir }}/my.cnf.bak.ansible'
+    remote_src: yes
+  failed_when: False
+  register: oldini
+  when: 'mariadb_server_ini != mariadb_basedir+"/my.cnf"'
+
+- name: remove old my.cnf
+  file:
+    path: '{{ mariadb_basedir }}/my.cnf'
+    state: absent
+  when: 'mariadb_server_ini != mariadb_basedir+"/my.cnf" and not oldini.failed'
+  notify: reload mariadb
+
+- name: rc.conf
+  lineinfile:
+    dest: /etc/rc.conf
+    line: '{{ item.key }}="{{ item.value }}"'
+    regexp: '^{{ item.key }}='
+  with_items:
+    - { key: mysql_enable, value: "YES" }
+    - { key: mysql_dbdir, value: '{{ mariadb_datadir }}' }
+  when: curdatadir.rc != 0
+
+- name: login.conf
+  blockinfile:
+    dest: /etc/login.conf
+    content: |
+      mysql:\
+        :lang=fr_FR.UTF-8:\
+        :charset=UTF-8:\
+        :tc=daemon:
+
+    marker: '# {mark} mariadb by ansible block'
+    backup: yes
+  register: loginconf
+
+- name: cap_mkdb
+  command: 'cap_mkdb /etc/login.conf'
+  when: loginconf.changed
+
+- name: prepare pkg upgrade
+  command: 'pkg set -yn mariadb{{ installed_mariadb_version | regex_replace("^([0-9]+)\.([0-9]+)\..*$","\1\2") }}-server:mariadb{{ mariadb_version | regex_replace("[^0-9]","") }}-server'
+  when: do_upgrade_mariadb and mariadb_installed_version | default(mariadb_version) is version_compare(mariadb_installed_version,"<")
+
+- name: install mariadb
+  pkgng:
+    name:
+      - 'mariadb{{ mariadb_version | regex_replace("[^0-9]","") }}-server'
+      - 'py{{ ansible_python_version | regex_replace("([2-3])\.([0-9]*)\..*$","\1\2") }}-pymysql'
+    state: '{% if do_upgrade_mariadb | default(False) %}latest{% else %}present{% endif %}'
+  register: install_mariadb
+
+- name: /var/run/mysql
+  file:
+    path: /var/run/mysql
+    owner: '{{ mariadb_owner }}'
+    mode: '0755'
+    group: '{{ mariadb_group }}'
+    state: directory
+
+- name: newsyslog.conf.d
+  file:
+    path: /usr/local/etc/newsyslog.conf.d
+    state: directory
+
+- name: newsyslog
+  copy:
+    force: no
+    dest: /usr/local/etc/newsyslog.conf.d/mariadb.conf
+    content: |
+      {{ mariadb_logdir }}/*.log  {{ mariadb_owner }}:{{ mariadb_group }}  640 7 1000  @T00  G {{ mariadb_basedir }}/{{ ansible_fqdn }}.pid
+
+- name: get installed server version
+  command: 'pkg query -x "%v" "mariadb.*-server"'
+  check_mode: False
+  register: pkgvers
+  changed_when: False
+  failed_when: false
+
+- name: fix facts
+  set_fact:
+    # 1. currently running one
+    # 2. /data if zfs
+    mariadb_datadir: '{{ curdatadir }}'
+    installed_mariadb_version: '{% if pkgvers.stdout_lines | count > 0 
+      %}{{ pkglist.stdout_lines[0] }}{% endif %}'
+  when: do_upgrade_mariadb | bool

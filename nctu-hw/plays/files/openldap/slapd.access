@@ -1,0 +1,12 @@
+access to attrs=userPassword
+    by self write
+    by anonymous auth
+    by dn.base="cn=admin,dc=1,dc=nctu,dc=cs" write
+    by * none
+
+access to *
+    by self write
+    by users read
+    by anonymous peername.IP=127.0.0.1 read
+    by dn.base="cn=admin,dc=1,dc=nctu,dc=cs" write
+    by * none

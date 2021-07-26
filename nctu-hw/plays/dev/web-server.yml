@@ -1,0 +1,97 @@
+- hosts: www
+  become: true
+  pre_tasks:
+    - include_vars: "{{ inventory_dir }}/vault/secrets.yml"
+
+    - name: Use pkg to install python encryption module
+      pkgng:
+        name: security/py-cryptography
+
+    - name: Create dir for private key
+      file:
+        path: "/etc/ssl/nctu/private"
+        state: directory
+
+    - name: Generate private key
+      openssl_privatekey:
+        path: "/etc/ssl/nctu/private/{{ openssl_name }}.key"
+
+    - name: Generate CSR
+      openssl_csr:
+        path: "/etc/ssl/nctu/private/{{ openssl_name }}.csr"
+        privatekey_path: "/etc/ssl/nctu/private/{{ openssl_name }}.key"
+        country_name: TW
+        state_or_province_name: Taiwan
+        locality_name: HsinChu
+        organization_name: NCTU
+        organizational_unit_name:
+        common_name: "{{ openssl_name }}"
+        email_address: ChihChia4Wang@gmail.com
+
+    - name: Pull CSR
+      fetch:
+        src: "/etc/ssl/nctu/private/{{ openssl_name }}.csr"
+        dest: "{{ openssl_ownca_dir }}/{{ openssl_name }}.csr"
+        flat: true
+
+    - name: Sign CSR with CA key
+      become: false
+      connection: local
+      delegate_to: localhost
+      openssl_certificate:
+        path: "{{ openssl_ownca_dir }}/{{ openssl_name }}.crt"
+        csr_path: "{{ openssl_ownca_dir }}/{{ openssl_name }}.csr"
+        ownca_path: "{{ openssl_ownca_dir }}/{{ openssl_ownca_name }}.crt"
+        ownca_privatekey_path: "{{ openssl_ownca_dir }}/{{ openssl_ownca_name }}.key"
+        ownca_privatekey_passphrase: "{{ ownca_privatekey_phrase }}"
+        provider: ownca
+
+    - name: Push certificate
+      copy:
+        src: "{{ openssl_ownca_dir }}/{{ openssl_name }}.crt"
+        dest: "/etc/ssl/nctu/private/{{ openssl_name }}.crt"
+
+    - name: Create dir for root ca
+      file:
+        path: "/etc/ssl/ca-trust/source/anchors"
+        state: directory
+
+    - name: Push CA
+      copy:
+        src: "{{ openssl_ownca_dir }}/root.crt"
+        dest: "/etc/ssl/ca-trust/source/anchors/root.pem"
+
+    - name: Create group
+      group:
+        name: mysql
+        state: present
+
+    - name: Add the user mysql
+      user:
+        name: mysql
+        group: mysql
+
+  roles:
+    - role: vbotka.freebsd_mysql
+      # remote_user: root
+      bsd_mysql_enable: true
+      bsd_mysql_debug: true
+      bsd_mysql_debug_classified: true
+      # bsd_mysql_mysql_user: vagrant
+      bsd_mysql_version: "57"
+      # bsd_mysql_login_user: mysql
+      bsd_mysql_secret: "MYSQLPASSWORD1234haha"
+      # bsd_mysql_secret: "{{ mysql_secret }}" # "我藏在vault secrets裏"
+      bsd_mysql_secret_local_dir: "{{ inventory_dir }}/v"
+      # bsd_mysql_user:
+      #   - user: mysql
+      #     password: "{{ bsd_mysql_secret }}"
+      #     priv: "*:ALL"
+      #     update_password: on_create
+
+    # - role: hanxhx.php
+    #   php_version: "7.4"
+    #   php_ini:
+    #     "date.timezone": "Asia/Taipei"
+    #   php_extra_packages:
+    #     - "php74-extensions"

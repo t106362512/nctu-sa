@@ -1,0 +1,30 @@
+---
+# config ldap globale
+- name: openldap config dir
+  file:
+    path: '{{ ldap_etcdir }}'
+    state: directory
+    owner: 0
+    group: '0'
+    mode: '0755'
+  when: ldap_base | length > 0 and do_sysadm
+  tags: ldapconf
+
+- name: ldap.conf
+  lineinfile:
+    dest: '{{ ldap_etcdir }}/ldap.conf'
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    create: yes
+    state: present
+  with_items:
+    - { regexp: '^BASE', line: 'BASE {{ ldap_base }}' }
+    - { regexp: '^URI', line: 'URI {{ ldap_uri }}' }
+    - { regexp: '^TLS_REQCERT', line: 'TLS_REQCERT {{ ldap_tls_reqcert }}' }
+    - { regexp: '^TLS_CACERT', line: 'TLS_CACERT {{ x509_ca_path }}' }
+
+- name: chmod 644 ldap.conf
+  file:
+    path: '{{ ldap_etcdir }}/ldap.conf'
+    mode: '0644'
+  check_mode: False

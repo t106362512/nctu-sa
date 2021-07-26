@@ -1,0 +1,23 @@
+---
+# config client ldap
+
+- name: OS vars
+  include_vars: "vars/{{ ansible_os_family }}.yml"
+  tags: nssldap
+
+- name: OS tasks
+  include_tasks: "tasks/{{ ansible_os_family }}.yml"
+  tags: nssldap
+# - name: Config nslcd.conf
+#   template:
+#     dest: '{{ nslcd_conf }}'
+#     src: nslcd.conf.j2
+#     mode: '0600'
+#   notify: restart ldap client
+#   tags: nssldap
+
+# - name: ensure nslcd is started
+#   service:
+#     name: nslcd
+#     state: started
+#   tags: nssldap

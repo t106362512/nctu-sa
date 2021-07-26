@@ -1,0 +1,36 @@
+---
+- name: freebsd restart nfs all
+  service:
+    name: "{{ item }}"
+    state: restarted
+  with_items:
+    - nfsclient
+    - lockd
+    - statd
+    - nfscbd
+    - nfsuserd
+
+- name: freebsd autofs reload
+  service:
+    name: '{{ item }}'
+    state: restarted
+  with_items:
+    - automountd
+    - autounmountd
+    - automount
+
+- name: debian initrd
+  shell: update-initramfs -k all -u
+  tags:
+    - skip_ansible_lint
+
+- name: debian restart nfs all
+  service:
+    name: '{{ item }}'
+    state: restarted
+  with_items:
+    - nfs-client
+    - nfs-utils
+    - nfs-statd
+    - nfs-statd-notify
+  failed_when: False

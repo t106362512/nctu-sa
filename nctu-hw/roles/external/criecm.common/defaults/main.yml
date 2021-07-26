@@ -1,0 +1,200 @@
+---
+# vars to define elsewhere (group_vars/, host_vars/, inventory, …) see
+# http://docs.ansible.com/ansible/playbooks_variables.html#variable-precedence
+#
+# allow disabling most actions, keeping vars
+do_sysadm: False
+do_sys: False
+# if False, disable security-related too
+do_ssi: True
+
+common_version: 4
+
+# write resolv.conf
+do_resolvconf: True
+
+# install nut
+do_nut: True
+
+# basedn LDAP
+ldap_base:
+# URI LDAP
+ldap_uri: 'ldaps://ldapr.univ.fr/ ldaps://ldap.univ.fr/'
+# openldap config directory
+ldap_etcdir: /etc/ldap
+
+# root shell
+root_shell: zsh
+
+# etcprefix (/usr/local or not)
+etcprefix: ''
+
+# ntp
+ntp_service: ntp
+
+# config ntp
+ntp_config: ntp.conf
+
+# serveurs ntp
+ntp_servers: []
+
+ntp_pools: []
+
+ntp_listen_addrs: []
+
+ntp_leapfile:
+
+# mailrelays selected by network
+# ex: - { network: 10.0.0.0/24, relay: smtp.internal }
+#     - { network: 192.168.0.0/24, relay: smtp.special }
+#     - { network: 0.0.0.0/0, relay: smtp.default }
+mailrelays: []
+
+# mail relay to configure (force over mailrelays)
+host_mailrelay: ''
+
+# is mail relay ? (host var)
+is_mailrelay: False
+
+# mail aliases file
+mailaliases: /etc/aliases
+
+# redirect mail for root to...
+rootmailto:
+
+# x509 CA certificate
+x509_ca_file: ''
+
+# and its place on filesystem
+x509_ca_path: /etc/ssl/ca.crt
+
+# value for TLS_REQCERT in ldap.conf (and others)
+ldap_tls_reqcert: never
+
+# host is a resolver
+is_resolver: False
+
+# specific FreeBSD repo
+pkg_repo_conf: ''
+
+# nameserver
+#  network: restrict host ip ('0.0.0.0/0'=all)
+#  ip: nameserver
+resolvers:
+  - { network: '0.0.0.0/0', ip: "8.8.8.8" }
+#  - { network: '^10\.3\.0\.', ip: "10.3.0.52" }
+#  - { network: '^2001:660:5404:', ip: "2001:660:5404:b0b::53" }
+#  - { network: '^10\.3\.0\.', ip: "147.94.19.254" }
+
+# for IPv6-only hosts
+dns64_resolvers: []
+
+# search domains for resolv.conf
+#search_domains:
+#  - { network: '2001::/8', domain: 'ipv6.univ.fr' }
+#  - { network: '192.168.1.0/24', domain: 'home' }
+#  - { network: '0.0.0.0/0', domain: 'default.domain' }
+
+# force rewrite of resolv.conf
+overwrite_resolvconf: False
+
+# timezone
+host_timezone: 'Europe/Paris'
+
+# default prefix for commands
+prefix: /usr
+
+# for jails ONLY
+is_jail: False
+
+# for kvm/...
+is_vm: False
+
+# syslog server to send syslogs
+syslog_server: ''
+
+# syslog server for auth
+syslog_auth_server: '{{ syslog_server }}'
+
+# for syslog SERVER
+is_syslogd: False
+
+# snmpd
+do_snmp: False
+
+# default sshd lines
+#ex:  - { line: 'PermitUserEnvironment yes', regexp: '^PermitUserEnvironment', insertafter: '^#[[:space:]]*PermitUserEnvironment' }
+default_sshd_lines: []
+
+# host specific lines
+sshd_lines: []
+
+# host specific pkgs
+pkgs: []
+
+# same for use in sub-roles
+role_pkgs: []
+
+# same for inventory
+host_pkgs: []
+
+group_pkgs: []
+
+# path prefix for relative gits[path]'s
+gits_root: /root
+
+# gits: git repos to deploy in /usr/local/admin/sysutils
+gits: []
+# idem, added to gits at runtime (for use in host vars or ...)
+host_gits: []
+# idem, for use in roles
+role_gits: []
+# and in group_vars :)
+group_gits: []
+
+# ssh key for above git repos (fiole name in files/, copied to /root/.ssh/)
+git_ssh_key:
+
+# serveur ocsinventory
+ocsinventory_server: ''
+ocsinventory_tag: ''
+
+# NUT
+nut_monitor: ''
+nut_mode: netclient
+
+# crons
+crons: []
+host_crons: []
+role_crons: []
+
+do_smart: True
+
+openbsd_pkg_mirror: http://ftp.openbsd.org
+
+freebsd_base_pkgs:
+  - git
+  - 'py{{ ansible_python_version | regex_replace("([2-3])\.([0-9]*)\..*$","\1\2") }}-pip'
+  - rsync
+  - vim-console
+  - '{{ root_shell | basename }}'
+
+openbsd_base_pkgs:
+  - git
+  - rsync
+  - 'py{{ ansible_python_version | regex_replace("([2-3])\..*$","\1") }}-pip'
+  - vim--no_x11
+  - '{{ root_shell | basename }}'
+
+debian_base_pkgs:
+  - '{{ root_shell | basename }}'
+  - git
+  - ntp
+  - ntpdate
+  - vim
+  - 'python{{ ansible_python_version | regex_replace("([2-3])\..*$","\1") }}-pip'
+
+backup_dir: '{{ playbook_dir }}/files/backups/{{ ansible_hostname }}'
+
+common_freebsd_sysctls:
+  - { regexp: '^security.bsd.see_other_uids=', line: 'security.bsd.see_other_uids=0' }

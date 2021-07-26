@@ -1,0 +1,32 @@
+---
+# config client ldap Debian
+
+- block:
+  - name: config client LDAP Debian 8/9
+    debconf:
+      name: '{{ item.name }}'
+      question: '{{ item.question }}'
+      value: '{{ item.value }}'
+      vtype: '{{ item.vtype }}'
+    with_items:
+      - { name: 'nslcd', question: 'nslcd/ldap-uris', vtype: 'string', value: '{{ ldap_uri }}' }
+      - { name: 'nslcd', question: 'nslcd/ldap-base', vtype: 'string', value: '{{ ldap_base }}' }
+      - { name: 'nslcd', question: 'nslcd/ldap-binddn', vtype: 'string', value: '{{ ldap_binddn }}' }
+      - { name: 'nslcd', question: 'nslcd/ldap-bindpw', vtype: 'string', value: '{{ ldap_bindpw }}' }
+      - { name: 'nslcd', question: 'nslcd/ldap-auth-type', vtype: 'select', value: 'simple' }
+      - { name: 'nslcd', question: 'nslcd/ldap-cacertfile', vtype: 'string', value: '{{ ldap_tls_cacert }}' }
+      - { name: 'nslcd', question: 'nslcd/ldap-reqcert', vtype: 'string', value: '{{ ldap_tls_reqcert }}' }
+      - { name: 'nslcd', question: 'nslcd/ldap-starttls', vtype: 'boolean', value: '{% if ldap_starttls %}true{% else %}false{% endif %}' }
+      - { name: 'nslcd', question: 'libraries/restart-without-asking', vtype: 'boolean', value: 'true' }
+      - { name: 'libnss-ldapd', question: 'libnss-ldapd/nsswitch', vtype: 'multiselect', value: '{% if ldap_nss %}passwd, group, shadow{% if ldap_autofs %}, automount{% endif %}{% endif %}' }
+      - { name: 'libpam-ldapd', question: 'libpam-ldapd/enable_shadow', vtype: 'boolean', value: 'true' }
+
+  - name: Installe client LDAP
+    apt:
+      name:
+        - nslcd
+        - nslcd-utils
+        - libnss-ldapd
+        - libpam-ldapd
+      state: present
+  tags: nssldap

@@ -1,0 +1,24 @@
+galaxy_info:
+  author: Geoffroy Desvernay
+  description: another sysadmin
+  company: Ecole Centrale Marseille
+
+  license: BSD
+
+  min_ansible_version: 2.4
+
+  platforms:
+    - name: FreeBSD
+      versions:
+        - 10.4
+        - 11.1
+        - 11.2
+  # - name: Debian
+  #   versions:
+  #   - stretch
+
+  galaxy_tags:
+    - nfs
+
+dependencies:
+  - criecm.nfs_client

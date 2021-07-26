@@ -1,0 +1,4 @@
+---
+ldap_etcdir: /etc/ldap
+nslcd_conf: /etc/nslcd.conf
+pam_ldap_module_path: /lib/x86_64-linux-gnu/security/pam_ldap.so

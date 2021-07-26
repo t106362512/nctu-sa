@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<autofs_ldap_sasl_conf
+        usetls="no"
+        tlsrequired="{% if ldap_uri | match("ldaps:") %}yes{% else %}no{% endif %}"
+        authrequired="simple"
+        user="{{ ldap_binddn }}"
+        secret="{{ ldap_bindpw }}"
+/>

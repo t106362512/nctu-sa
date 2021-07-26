@@ -1,0 +1,63 @@
+---
+- name: get vm guest status
+  shell: 'dmesg | egrep "(on KVM|Virtual HD|VMware|Xen virtual console)"'
+  failed_when: False
+  check_mode: False
+  changed_when: False
+  register: vm_status
+  tags: vars
+
+- name: register is_vm
+  set_fact:
+    is_vm: True
+    cacheable: yes
+  when: vm_status.rc == 0
+  tags: vars
+
+- name: installe debconf-utils
+  apt:
+    name: debconf-utils
+    state: present
+  tags: baseconf, pkg
+  when: do_sys
+
+# timezone
+- block:
+  - name: get timezone
+    command: cat /etc/timezone
+    register: zoneinfo
+    changed_when: False
+    check_mode: False
+    ignore_errors: True
+  - name: set timezone
+    command: 'echo {{ host_timezone }} > /etc/timezone'
+    when: zoneinfo.stdout != host_timezone
+  tags: timezone
+  when: do_sys
+
+# locales
+- name: set locales
+  lineinfile:
+    dest: /etc/locale.gen
+    line: '{{ locale }}'
+    regexp: '{{ locale }}'
+  with_items:
+    - en_US.UTF-8 UTF-8
+    - fr_FR.UTF-8 UTF-8
+  loop_control:
+    loop_var: locale
+  notify: debian regen locales
+  tags: locales
+  when: do_sys
+## list disks
+#- name: list disks
+#  shell: "lsblk | awk '{if($6~/^disk$/){print $1;}}'"
+#  changed_when: False
+#  check_mode: False
+#  register: lsdisks
+#  when: do_smartd
+#
+#- set_fact:
+#    disks: '{{ lsdisks.stdout_lines }}'
+#    cacheable: True
+#  when: do_smartd

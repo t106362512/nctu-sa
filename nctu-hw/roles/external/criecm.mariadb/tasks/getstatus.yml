@@ -1,0 +1,19 @@
+- name: get running mysqld
+  command: pgrep mysqld
+  register: mypids
+  check_mode: False
+  failed_when: False
+  changed_when: False
+
+- name: get cluster status
+  command: "mysql -e \"SHOW STATUS LIKE 'wsrep_cluster_size';\""
+  register: cluster_size
+  when: galera.cluster_name | default(False)
+  check_mode: False
+  failed_when: False
+  changed_when: False
+
+- name: facts
+  set_fact:
+    mysqld_running: '{% if mypids.rc == 0 %}True{% else %}False{% endif %}'
+    cluster_running: '{% if galera.cluster_name | default(False) and cluster_size.stdout_lines[1] | default(False) %}{{ cluster_size.stdout_lines[1] | regex_replace("^.*\t","") }}{% else %}False{% endif %}'

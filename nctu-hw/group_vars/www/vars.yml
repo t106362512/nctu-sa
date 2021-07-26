@@ -1,0 +1,8 @@
+---
+openssl_name: www.1.nctu.cs
+openssl_remote_base_dir: /usr/local/etc/nginx/ssl
+openssl_remote_private_dir: "{{ openssl_remote_base_dir }}/private"
+openssl_remote_cert_dir: "{{ openssl_remote_base_dir }}/certs"
+openssl_remote_ca_cert_dir: /etc/ssl/certs
+server_ip: "10.113.0.2"
+nginx_basic_auth_username: admin

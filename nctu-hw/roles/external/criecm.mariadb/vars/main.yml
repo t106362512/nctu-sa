@@ -1,0 +1,6 @@
+---
+# vars file for criecm.mariadb
+mariadb_service: 'mysql-server'
+my_cnf_mysqld: '{{ my_cnf_mysqld_default | combine( mariadb_config | default({}) ) }}'
+mariadb_innodb_logdir: '{{ mariadb_basedir }}{% if mariadb_zfs_base %}/innodb-logs{% endif %}'
+mariadb_datadir: '{{ mariadb_basedir }}{% if mariadb_zfs_base %}/data{% endif %}'

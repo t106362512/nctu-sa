@@ -1,0 +1,63 @@
+---
+# NFS services
+- name: rc conf
+  lineinfile:
+    line: '{{ item.key }}="{{ item.value }}"'
+    regexp: "^{{ item.key }}="
+    dest: /etc/rc.conf
+  when: item.value != ''
+  with_dict:
+    nfs_client_enable: "YES"
+    rpcbind_enable: "YES"
+    rpc_lockd_enable: "YES"
+    rpc_statd_enable: "YES"
+    nfscbd_enable: "YES"
+    rpcbind_flags: "{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}"
+    rpc_lockd_flags: "{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}-p 4045"
+    rpc_statd_flags: "{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}-p 4047"
+    rpc_mountd_flags: "{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}-p 4046 -l"
+    mountd_flags: "{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}-p 4046 -l"
+    mountd_enable: "YES"
+    nfscbd_flags: "-p 4048"
+    nfsuserd_enable: "{% if idmap_domain | default(False) %}YES{% else %}NO{% endif %}"
+    nfsuserd_flags: "{% if idmap_domain | default(False) %}-domain {{idmap_domain}} {% endif %}-usermax 10000"
+  notify: freebsd restart nfs all
+
+- name: rpcbind started
+  service:
+    name: rpcbind
+    state: started
+
+# automount /users
+- block:
+  - name: autofs rc.conf
+    lineinfile:
+      line: 'autofs_enable="YES"'
+      regexp: '^autofs_enable='
+      dest: /etc/rc.conf
+    notify: freebsd autofs reload
+
+  - name: include_ldap_ecm
+    template:
+      src: include_ldap_autofs.j2
+      dest: /etc/autofs/include_ldap_autofs
+      mode: '0700'
+      owner: root
+    notify: freebsd autofs reload
+
+  - name: autofs/include link
+    file:
+      src: include_ldap_autofs
+      dest: /etc/autofs/include
+      owner: root
+      state: link
+    notify: freebsd autofs reload
+
+  - name: "active auto_master"
+    lineinfile:
+      line: '+{{ ldap_autofs_master_map }}'
+      dest: /etc/auto_master
+      regexp: '^\+'
+    notify: freebsd autofs reload
+
+  when: ldap_autofs_master_map | bool

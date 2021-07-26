@@ -1,0 +1,21 @@
+MONITOR {{ nut_monitor }}
+
+MINSUPPLIES 1
+
+SHUTDOWNCMD "{% if ansible_system == "FreeBSD" %}/sbin/shutdown -p now{% elif ansible_system == "OpenBSD" %}/sbin/shutdown -hp now{% else %}/sbin/shutdown -hP now{% endif %}"
+
+POLLFREQ 5
+POLLFREQALERT 5
+HOSTSYNC 15
+DEADTIME 15
+
+POWERDOWNFLAG /etc/killpower
+
+NOTIFYFLAG LOWBATT      SYSLOG+WALL
+NOTIFYFLAG FSD  SYSLOG+WALL
+NOTIFYFLAG SHUTDOWN     SYSLOG+WALL
+
+RBWARNTIME 43200
+NOCOMMWARNTIME 300
+FINALDELAY 5
+

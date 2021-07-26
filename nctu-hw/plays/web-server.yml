@@ -1,0 +1,271 @@
+- hosts: www
+  become: true
+  pre_tasks:
+    # #===== 到時再拆成 roles, ca maker. =====
+    - name: Use pkg to install python encryption module
+      pkgng:
+        name: security/py-cryptography
+
+    - name: Create dir for private key
+      file:
+        path: "{{ openssl_remote_private_dir }}"
+        state: directory
+
+    - name: Generate private key
+      openssl_privatekey:
+        path: "{{ openssl_remote_private_dir }}/{{ openssl_name }}.key"
+
+    - name: Generate CSR
+      openssl_csr:
+        path: "{{ openssl_remote_private_dir }}/{{ openssl_name }}.csr"
+        privatekey_path: "{{ openssl_remote_private_dir }}/{{ openssl_name }}.key"
+        country_name: TW
+        state_or_province_name: Taiwan
+        locality_name: HsinChu
+        organization_name: NCTU
+        organizational_unit_name:
+        common_name: "{{ openssl_name }}"
+        email_address: ChihChia4Wang@gmail.com
+
+    - name: Pull CSR
+      fetch:
+        src: "{{ openssl_remote_private_dir }}/{{ openssl_name }}.csr"
+        dest: "{{ openssl_ownca_dir }}/{{ openssl_name }}.csr"
+        flat: true
+
+    - name: Sign CSR with CA key
+      become: false
+      connection: local
+      delegate_to: localhost
+      openssl_certificate:
+        path: "{{ openssl_ownca_dir }}/{{ openssl_name }}.crt"
+        csr_path: "{{ openssl_ownca_dir }}/{{ openssl_name }}.csr"
+        ownca_path: "{{ openssl_ownca_dir }}/{{ openssl_ownca_name }}.crt"
+        ownca_privatekey_path: "{{ openssl_ownca_dir }}/{{ openssl_ownca_name }}.key"
+        ownca_privatekey_passphrase: "{{ ownca_privatekey_phrase }}"
+        provider: ownca
+
+    - name: Push certificate
+      copy:
+        src: "{{ openssl_ownca_dir }}/{{ openssl_name }}.crt"
+        dest: "{{ openssl_remote_private_dir }}/{{ openssl_name }}.crt"
+
+    - name: Create dir for root ca
+      file:
+        path: "{{ openssl_remote_ca_cert_dir }}"
+        # path: /etc/ssl/ca-trust/source/anchors
+        state: directory
+
+    - name: Push CA
+      copy:
+        src: "{{ openssl_ownca_dir }}/root.crt"
+        dest: "{{ openssl_remote_ca_cert_dir }}/root.pem"
+
+    - name: Rehash cert # 通過 hash 以讓應用程式能找到這個 cert
+      command: "openssl rehash {{ openssl_remote_ca_cert_dir }}"
+    # #=========================================================
+
+    - name: Create dir for HW4
+      file:
+        path: "{{ item }}"
+        owner: www
+        group: www
+        state: directory
+      with_items:
+        - /home/www/public_html/vhost
+        - /home/www/public_html/ip-access
+        - /home/www/private_html/secret
+        - /var/www/app
+
+  roles:
+    - role: criecm.mariadb
+      mariadb_version: 10.5
+      mariadb_admin_password: "{{ mysql_secret }}"
+      server_charset: utf8mb4
+      server_collation: utf8mb4_unicode_ci
+      mariadb_basedir: /var/db/mysql
+      mariadb_datadir: /var/db/mysql/data
+      mariadb_dbs:
+        - name: wordpress
+          user: wdpress
+          pass: "{{ mysql_secret }}"
+          # host: "%"
+      mariadb_maintenance_users:
+        - name: wdpress
+          password: "{{ mysql_secret }}"
+          priv: wordpress.*:ALL
+          # fromhost: "localhost"
+      my_cnf_mysqld:
+        character-set-server: utf8mb4
+        collation-server: utf8mb4_unicode_ci
+
+    - role: geerlingguy.nginx
+      nginx_server_tokens: "off"
+      nginx_extra_http_options: |-
+        add_header Set-Cookie HttpOnly;
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header Referrer-Policy strict-origin-when-cross-origin;
+        add_header Content-Security-Policy "default-src 'self' 'unsafe-inline';";
+        add_header Strict-Transport-Security "max-age=31536000;includeSubDomains";
+
+        map $http_origin $allow_origin {
+          ~^https?://(.*\.)?.nctu.cs(:\d+)?$ $http_origin;
+          default "";
+        }
+        add_header Access-Control-Allow-Origin $allow_origin;
+
+        ssl_certificate     {{ openssl_remote_private_dir }}/{{ openssl_name }}.crt;
+        ssl_certificate_key {{ openssl_remote_private_dir }}/{{ openssl_name }}.key;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+        ssl_prefer_server_ciphers off;
+
+        server {
+          listen         80;
+          return 301 https://$host$request_uri;
+        }
+
+      nginx_vhosts:
+        - listen: "443 ssl http2"
+          server_name: "{{ openssl_name }}"
+          root: /home/www/public_html/vhost
+          index: "index.php index.html index.htm"
+          state: present
+          filename: "{{ openssl_name }}.conf"
+          extra_parameters: |-
+            add_header Allow "GET, POST, HEAD, OPTIONS" always;
+            if ( $request_method !~ ^(GET|HEAD|POST|OPTIONS)$ ) {
+              return 405;
+            }
+
+            location ~ "info-\d{1,3}\.php$" {
+              root /var/www;
+              fastcgi_pass    unix:/var/run/php-fpm.sock;
+              fastcgi_hide_header X-Powered-By;
+              fastcgi_param   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+              include         fastcgi_params;
+            }
+
+            location ~ ^/app {
+              root /var/www/;    
+              try_files $uri $uri/ @rwapp;
+              location ~ \.php$ {
+                  fastcgi_pass    unix:/var/run/php-fpm.sock;
+                  fastcgi_index   index.php;
+                  fastcgi_hide_header X-Powered-By;
+                  fastcgi_param   SCRIPT_FILENAME $request_filename;
+                  include         fastcgi_params;
+                  
+                  #fastcgi_split_path_info ^(.+\.php)(/.+)$; # 設定不到...
+                  #fastcgi_split_path_info ^(?:/app)(.*)?\?(.*)$; # 設定不到...
+                  #fastcgi_param   PATH_INFO $fastcgi_path_info; # 設定不到...
+              }
+            }
+            location @rwapp {
+              rewrite ^/app/(.*)$ /app/index.php;
+            }
+
+
+            location ^~ /wordpress {
+              root /var/www/;
+              try_files $uri $uri/ @wp;
+              location ~ \.php$ {
+                fastcgi_param SCRIPT_FILENAME $request_filename;
+                fastcgi_pass    unix:/var/run/php-fpm.sock;
+                fastcgi_hide_header X-Powered-By;
+                include         fastcgi_params;
+              }
+            }
+            location @wp {
+              rewrite ^/wordpress(.*)$ /wordpress/index.php?q=$1;
+            }
+
+        - listen: "443 ssl http2"
+          server_name: "{{ server_ip }}"
+          root: /home/www/public_html/ip-access
+          index: "index.php index.html index.htm"
+          state: present
+          filename: "{{ server_ip }}.conf"
+          extra_parameters: |-
+            add_header Allow "GET, POST, HEAD, OPTIONS" always;
+            if ( $request_method !~ ^(GET|HEAD|POST|OPTIONS)$ ) {
+              return 405;
+            }
+
+            location /private {
+              allow 10.113.0.1/31;
+              deny all;
+              auth_basic "Secret Page";
+              auth_basic_user_file /usr/local/etc/nginx/.htpasswd;
+              alias /home/www/private_html/secret;
+              try_files $uri $uri/ =404;
+            }
+
+    - role: hanxhx.php
+      php_version: "8.0"
+      php_install_fpm: true
+      php_ini:
+        "date.timezone": "Asia/Taipei"
+        "expose_php": "On"
+      php_extra_packages:
+        - "php80-mysqli"
+        - "php80-curl"
+        - "php80-dom"
+        - "php80-posix"
+        - "php80-filter"
+        - "php80-ftp"
+        - "php80-gd"
+        - "php80-iconv"
+        - "php80-mbstring"
+        - "php80-openssl"
+        - "php80-simplexml"
+        - "php80-sockets"
+        - "php80-tokenizer"
+        - "php80-xmlreader"
+        - "php80-zlib"
+        - "php80-pdo_mysql"
+        - "php80-zip"
+
+  tasks:
+    - name: Make htpasswd for basic auth
+      shell: |
+        echo -n {{ nginx_basic_auth_username }}: >> /usr/local/etc/nginx/.htpasswd
+        echo {{ nginx_secret }} | openssl passwd -apr1 -stdin >> /usr/local/etc/nginx/.htpasswd
+
+    - name: Make html
+      copy:
+        dest: "{{ item.base }}/{{ item.name }}/index.html"
+        content: |
+          <!DOCTYPE html>
+          <html lang="zh-TW">
+          <head>
+            <meta charset="utf-8" />
+            <title>{{ item.name }}</title>
+          </head>
+          <body>
+            <h1>nctu-sa-hw4-{{ item.name }}</h1>
+          </body>
+          </html>
+      with_items:
+        - { base: /home/www/public_html, name: ip-access }
+        - { base: /home/www/public_html, name: vhost }
+        - { base: /home/www/private_html, name: secret }
+
+    - name: Make php-info
+      copy:
+        content: <?php phpinfo(); ?>
+        dest: /var/www/info-1.php
+
+    - name: Make php-Basic App Router
+      copy:
+        src: "{{ playbook_dir }}/files/hw/4/index.php"
+        dest: /var/www/app/index.php
+
+    - name: Download Wordpress
+      shell: |+
+        fetch -o /tmp https://wordpress.org/latest.tar.gz
+        tar -zxf /tmp/latest.tar.gz -C /var/www/
+        chown -R www:www /var/www/
+        chmod -R 755 /var/www/

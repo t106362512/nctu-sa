@@ -1,0 +1,27 @@
+---
+# ocsinventory
+- name: config ocsinventory/debconf
+  debconf:
+    name: ocsinventory-agent
+    question: '{{ item.q }}'
+    vtype: '{{ item.t }}'
+    value: '{{ item.v }}'
+  with_items:
+    - { q: 'ocsinventory-agent/tag', t: 'string', v: '{{ ocsinventory_tag }}' }
+    - { q: 'ocsinventory-agent/method', t: 'select', v: 'https' }
+    - { q: 'ocsinventory-agent/server', t: 'string', v: '{{ ocsinventory_server }}' }
+- name: install ocsinventory-agent
+  apt:
+    name: ocsinventory-agent
+    state: present
+- name: config
+  copy:
+    dest: /etc/ocsinventory/ocsinventory-agent.cfg
+    content: |
+      server={{ ocsinventory_server }}
+      basevardir=/var/db/ocsinventory-agent
+      {% if ocsinventory_tag %}tag={{ ocsinventory_tag }}{% endif %}
+- name: run ocsinventory-agent
+  command: '/usr/bin/ocsinventory-agent'
+  failed_when: False
+  changed_when: False

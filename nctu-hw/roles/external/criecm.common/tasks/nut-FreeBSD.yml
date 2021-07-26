@@ -1,0 +1,21 @@
+---
+# NUT
+- name: install NUT
+  pkgng:
+    name: nut
+    state: present
+- name: nut.conf
+  copy:
+    content: |
+      MODE={{ nut_mode }}
+    dest: /usr/local/etc/nut/nut.conf
+- name: upsmon.conf
+  template:
+    src: upsmon.conf.j2
+    dest: /usr/local/etc/nut/upsmon.conf
+    mode: '0640'
+- name: service upsmon
+  service:
+    name: nut_upsmon
+    state: started
+    enabled: True

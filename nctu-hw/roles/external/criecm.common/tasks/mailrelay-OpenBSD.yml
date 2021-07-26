@@ -1,0 +1,27 @@
+---
+# mailrelay
+- name: mailrelay 6.3-
+  lineinfile:
+    dest: /etc/mail/smtpd.conf
+    line: 'accept from local for any relay via {{ mailrelay }}'
+    regexp: '^accept .*for any relay'
+  notify: restart smtpd
+  when: ansible_distribution_version is version('6.4','<')
+
+- name: mailrelay 6.4+
+  copy:
+    dest: /etc/mail/smtpd.conf
+    content: |
+      # Cree par ansible. Ne sera plus modifie automatiquement.
+      table aliases file:/etc/mail/aliases
+
+      listen on lo0
+
+      action "local" mbox alias <aliases>
+      action "relay" relay host smtp://{{ mailrelay }}
+
+      match for local action "local"
+      match for any action "relay"
+    force: no
+  notify: restart smtpd
+  when: ansible_distribution_version is version('6.4','>=')

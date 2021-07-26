@@ -1,0 +1,32 @@
+---
+galaxy_info:
+  author: Emilien Mantel
+  description: Install and configure PHP 7.0/7.1/7.2/7.3
+  company:
+  license: GPLv2
+  min_ansible_version: 2.6
+  platforms:
+  - name: Debian
+    versions:
+    - stretch
+    - buster
+  - name: Ubuntu
+    versions:
+    - xenial
+    - bionic
+  - name: FreeBSD
+    versions:
+    - 11.0
+    - 11.1
+    - 12.0
+  galaxy_tags:
+  - development
+  - web
+  - php
+  - php-fpm
+  - php7
+  - debian
+  - ubuntu
+  - freebsd
+dependencies: []
+

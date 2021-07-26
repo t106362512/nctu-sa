@@ -1,0 +1,3 @@
+---
+rels: '{% for relay in mailrelays %}{% if ansible_all_ipv4_addresses | ipaddr(relay.network) %}{{ relay.relay }},{% endif %}{% endfor %}'
+mailrelay: '{% if host_mailrelay == "" %}{{ rels | regex_replace(",.*","") }}{% else %}{{ host_mailrelay }}{% endif %}'

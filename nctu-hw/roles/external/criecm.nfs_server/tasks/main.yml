@@ -1,0 +1,36 @@
+---
+# NFS services
+- name: rc conf
+  lineinfile:
+    line: '{{ item.key }}="{{ item.value }}"'
+    regexp: "^{{ item.key }}="
+    dest: /etc/rc.conf
+  with_dict:
+    nfs_server_enable: "YES"
+    nfs_server_flags: "{{ mynfsd_flags }}"
+    mountd_flags: "{% for ip in nfs_bind_ips %}-h {{ ip }} {% endfor %}-p 4046 {{ mountd_add_flags }}"
+    mountd_enable: "YES"
+    nfsv4_server_enable: "{% if nfsv4_enable %}YES{% else %}NO{% endif %}"
+    #
+    nfs_reserved_port_only: "YES"
+  notify: restart freebsd nfs server
+  when: ansible_os_family == "FreeBSD" and item.value != ''
+
+- name: exports
+  copy:
+    dest: /etc/exports
+    force: no
+    content: |
+      V4: / -sec=sys
+  tags: nfs,exports
+  when: nfsv4_enable
+
+- name: mkdir & co
+  include_tasks: share.yml
+  with_items:
+    - "{{ shares }}"
+    # - '{{ group_shares }}'
+  loop_control:
+    loop_var: share
+  when: '"nfsshares" in share'
+  tags: nfs,shares

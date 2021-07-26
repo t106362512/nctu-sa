@@ -1,0 +1,38 @@
+---
+nfs_exports:
+  - export: /exports/net/data
+    mnt: /net/data
+  - export: /exports/net/home
+    mnt: /net/home
+  - export: /exports/vol/web_hosting
+    mnt: /vol/web_hosting
+
+nfs_shraes:
+  - path: "/vol/web_hosting"
+    # owner: "vagrant"
+    nfsshares:
+      - "-maproot=nobody -network=10.113.0.1/24"
+
+  - path: "/net/home/nisuser1"
+    nfsshares:
+      - "-maproot=nobody -ro -network 10.113.0.1/24"
+
+  - path: "/net/data/1"
+    nfsshares:
+      - "-maproot=nobody -ro -network 10.113.0.1/32"
+
+  - path: "/net/home/nisstu1"
+    nfsshares:
+      - "-maproot=nobody -network 10.113.0.1/32"
+
+pureftpd_tls_certificate_dir: /etc/ssl/private
+pureftpd_tls_certificate_pem: "{{ pureftpd_tls_certificate_dir }}/pure-ftpd.pem"
+pureftpd_tls_certificate_openssl:
+  days: 730
+  size: 4096
+  country: TW
+  state: Taiwan
+  locality: HsinChu
+  org: NCTU
+  unit:
+  fqdn: nfs.1.nctu.cs

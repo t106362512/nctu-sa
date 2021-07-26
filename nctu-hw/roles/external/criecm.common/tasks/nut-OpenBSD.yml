@@ -1,0 +1,31 @@
+---
+# NUT
+- name: install NUT
+  openbsd_pkg:
+    name: nut
+    state: present
+
+- name: nut.conf
+  copy:
+    content: |
+      MODE={{ nut_mode }}
+    dest: /etc/nut/nut.conf
+
+- name: upsmon.conf
+  template:
+    src: upsmon.conf.j2
+    dest: /etc/nut/upsmon.conf
+    mode: '0640'
+    group: _ups
+
+- name: rc script
+  copy:
+    src: upsmon_openbsd_rc
+    dest: /etc/rc.d/upsmon
+    force: no
+
+- name: service upsmon
+  service:
+    name: upsmon
+    state: started
+    enabled: True

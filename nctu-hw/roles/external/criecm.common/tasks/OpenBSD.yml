@@ -1,0 +1,38 @@
+---
+- name: check vm
+  shell: 'sysctl -n hw.vendor | grep -q "QEMU"'
+  register: vm_status
+  changed_when: False
+  check_mode: False
+  failed_when: False
+  tags: vars
+
+- name: register is_vm
+  set_fact:
+    is_vm: True
+    cacheable: yes
+  when: vm_status.rc == 0
+  tags: vars
+
+# timezone
+- name: timezone
+  file:
+    src: '/usr/share/zoneinfo/{{ host_timezone }}'
+    dest: '/etc/localtime'
+    state: link
+    force: yes
+  tags: timezone
+  when: do_sys
+
+## list disks
+#- name: list disks
+#  shell: "awk '/^[sw]d[0-9]*: .*sectors/{gsub(\":\",\"\",$1); printf(\"%sc\\n\",$1);}' /var/run/dmesg.boot | sort -u"
+#  changed_when: False
+#  check_mode: False
+#  register: lsdisks
+#  when: do_smartd
+#
+#- set_fact:
+#    disks: '{{ lsdisks.stdout_lines }}'
+#    cacheable: true
+#  when: do_smartd

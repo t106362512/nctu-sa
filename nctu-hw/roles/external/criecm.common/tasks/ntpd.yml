@@ -1,0 +1,23 @@
+---
+- name: config ntpd
+  template:
+    src: '{{ ntp_config }}.j2'
+    dest: '/etc/{{ ntp_config }}'
+    mode: '0644'
+  notify: restart ntpd
+
+- name: enable ntpd
+  service:
+    name: '{{ ntp_service }}'
+    enabled: yes
+    state: started
+
+# ntp leapfile
+- name: leapfile cron
+  lineinfile:
+    line: 'daily_ntpd_leapfile_enable="NO"'
+    regexp: '^daily_ntpd_leapfile_enable='
+    insertafter: 'daily_ntpd_leapfile_enable'
+    dest: /etc/periodic.conf
+    create: True
+  when: ansible_os_family == 'FreeBSD'

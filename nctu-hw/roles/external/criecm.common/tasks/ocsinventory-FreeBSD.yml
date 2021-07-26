@@ -1,0 +1,22 @@
+---
+# ocsinventory
+- name: install ocsinventory-agent
+  pkgng:
+    name: ocsinventory-agent
+    state: present
+- name: ocs conf dir
+  file:
+    dest: /usr/local/etc/ocsinventory
+    state: directory
+- name: ocs config
+  copy:
+    dest: /usr/local/etc/ocsinventory/ocsinventory-agent.cfg
+    content: |
+      server={{ ocsinventory_server }}
+      ca=/usr/local/etc/ssl/cert.pem
+      basevardir=/var/db/ocsinventory-agent
+      {% if ocsinventory_tag %}tag={{ ocsinventory_tag }}{% endif %}
+- name: run ocsinventory-agent
+  command: '/usr/local/bin/ocsinventory-agent'
+  failed_when: False
+  changed_when: False

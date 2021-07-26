@@ -1,0 +1,7 @@
+{% if syslog_server | default(False) %}
+# ansible: syslog_server={{ syslog_server }}
+auth,authpriv.*                 @{{ syslog_auth_server | default(syslog_server) }}
+mail.info                       @{{ syslog_server }}
+{% else %}
+# ansible: no syslog_server
+{% endif %}

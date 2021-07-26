@@ -1,0 +1,27 @@
+---
+# mailrelay
+- block:
+  - name: installe postfix
+    apt:
+      name: postfix
+      state: present
+
+  # TIP: pour transformer le format debconf en liste ci-dessous:
+  # debconf-get-selections | grep ^postfix | awk '{
+  #   printf("     - { name='\''%s'\'', question='\''%s'\'', vtype='\''%s'\'', value='\''%s",$1,$2,$3,$4);
+  #   for(i=5;i<=NF;i++){printf(" %s",$i);} printf("'\'' }\n");}' | sed 's/$HOSTNAME/{{ ansible_fqdn }}/; s/$RELAYHOST/{{ mailrelay }}/;'
+  - name: configure postfix
+    debconf:
+      name: "{{ item.name }}"
+      question: "{{ item.question }}"
+      value: "{{ item.value }}"
+      vtype: "{{ item.vtype }}"
+    with_items:
+      - { name: 'postfix', question: 'postfix/root_address', value: 'root+{{ ansible_nodename }}@{{ maildomain }}', vtype: 'string' }
+      - { name: 'postfix', question: 'postfix/mynetworks', vtype: 'string', value: '127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128' }
+      - { name: 'postfix', question: 'postfix/mailname', vtype: 'string', value: '{{ ansible_hostname }}.{{ maildomain }}' }
+      - { name: 'postfix', question: 'postfix/destinations', vtype: 'string', value: '{{ ansible_fqdn }}, localhost' }
+      - { name: 'postfix', question: 'postfix/relayhost', vtype: 'string', value: '{{ mailrelay }}' }
+      - { name: 'postfix', question: 'postfix/main_mailer_type', vtype: 'select', value: 'Satellite system' }
+      - { name: 'postfix', question: 'postfix/procmail', vtype: 'boolean', value: 'false' }
+    notify: reconfigure postfix

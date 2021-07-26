@@ -1,0 +1,157 @@
+---
+- name: vars
+  include_vars: "{{ ansible_distribution }}.yml"
+  ignore_errors: True
+
+- name: get status
+  include_tasks: "getstatus.yml"
+
+- name: install
+  include_tasks: "install-{{ ansible_os_family }}.yml"
+
+- debug:
+    msg: |
+      version={{ mariadb_version }}
+      socket={{ mariadb_socket }}
+      ini={{ mariadb_server_ini }}
+
+- name: log dir
+  file:
+    dest: "{{ mariadb_logdir }}"
+    state: directory
+    mode: "0750"
+    owner: "{{ mariadb_owner }}"
+    group: "{{ mariadb_group }}"
+
+- name: dbdir
+  file:
+    dest: "{{ mariadb_basedir }}"
+    state: directory
+    owner: "{{ mariadb_owner }}"
+    group: "{{ mariadb_group }}"
+    mode: "0770"
+    recurse: yes
+
+- name: start mariadb
+  service:
+    name: "{{ mariadb_service }}"
+    state: started
+    enabled: yes
+
+- name: root pass
+  mysql_user:
+    login_unix_socket: "{{ mariadb_socket }}"
+    name: root
+    password: "{{ mariadb_root_password }}"
+    login_user: root
+    host: localhost
+    append_privs: yes
+    priv: "*.*:ALL,GRANT"
+    check_implicit_admin: yes
+    state: present
+  when: mariadb_root_password | length > 0
+
+- name: /root/.my.cnf
+  copy:
+    dest: /root/.my.cnf
+    mode: "0600"
+    backup: yes
+    content: |
+      [mysql]
+      user=root
+      {% if mariadb_root_password | length > 0 %}password={{ mariadb_root_password }}{% endif %}
+
+      [mysqladmin]
+      user=root
+      {% if mariadb_root_password | length > 0 %}password={{ mariadb_root_password }}{% endif %}
+
+- name: first install
+  block:
+    - name: no test db
+      mysql_db:
+        login_unix_socket: "{{ mariadb_socket }}"
+        name: test
+        state: absent
+    - name: no empty mysql user for localhost
+      mysql_user:
+        login_unix_socket: "{{ mariadb_socket }}"
+        name: ""
+        host: localhost
+        state: absent
+    - name: no empty mysql user for any host
+      mysql_user:
+        login_unix_socket: "{{ mariadb_socket }}"
+        name: ""
+        host_all: yes
+        state: absent
+    - name: no root on 127.0.0.1
+      mysql_user:
+        login_unix_socket: "{{ mariadb_socket }}"
+        name: "root"
+        host: "127.0.0.1"
+        state: absent
+    - name: no root on ::1
+      mysql_user:
+        login_unix_socket: "{{ mariadb_socket }}"
+        name: "root"
+        host: "::1"
+        state: absent
+  when: install_mariadb.changed
+  run_once: "{% if galera.cluster_name | default(False) %}True{% else %}False{% endif %}"
+
+- name: "default admin {{ mariadb_admin_user }}"
+  mysql_user:
+    name: "{{ mariadb_admin_user }}"
+    password: "{{ mariadb_admin_password }}"
+    update_password: on_create
+    login_unix_socket: "{{ mariadb_socket | default(omit) }}"
+    host: "%"
+    priv: "*.*:ALL,GRANT"
+    state: present
+  when: "mariadb_admin_user | length > 0 and mariadb_admin_password | length > 0"
+  run_once: "{% if galera.cluster_name | default(False) %}True{% else %}False{% endif %}"
+
+- name: Create dir for 'local facts'
+  file:
+    path: "{{ etcprefix |default('', true) }}/etc/ansible/facts.d"
+    state: directory
+
+- name: local facts
+  copy:
+    src: my_dbs.fact
+    dest: "{{ etcprefix |default('', true) }}/etc/ansible/facts.d/my_dbs.fact"
+    mode: "0550"
+
+- name: new users
+  mysql_user:
+    name: "{{ item.name }}"
+    priv: '{{ item.priv | default("*.*:USAGE") }}'
+    host: '{{ item.host | default("localhost") }}'
+    password: '{{ item.password | default(item.name | hash("sha256")) }}'
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: present
+  with_items: "{{ mariadb_users | union(mariadb_maintenance_users) }}"
+  run_once: "{% if galera.cluster_name | default(False) %}True{% else %}False{% endif %}"
+
+- name: new dbs
+  mysql_db:
+    name: "{{ item.name }}"
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: present
+  with_items:
+    - "{{ mariadb_dbs }}"
+  when: "mariadb_dbs | count > 0"
+  run_once: "{% if galera.cluster_name | default(False) %}True{% else %}False{% endif %}"
+
+- name: mysql db users
+  mysql_user:
+    name: "{{ item.user }}"
+    password: "{{ item.pass }}"
+    host: '{{ item.fromhost | default("%") }}'
+    priv: '{{ item.priv | default(item.name+".*:ALL") }}'
+    login_unix_socket: "{{ mariadb_socket }}"
+    state: present
+  loop:
+    - "{{ mariadb_dbs }}"
+  when: "mariadb_dbs | count > 0 and item.user | default(False)"
+  run_once: "{% if galera.cluster_name | default(False) %}True{% else %}False{% endif %}"

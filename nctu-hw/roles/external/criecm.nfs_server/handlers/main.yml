@@ -1,0 +1,11 @@
+---
+# handlers file for criecm.nfs_server
+- name: restart freebsd nfs server
+  service:
+    name: nfsd
+    state: restarted
+
+- name: reload mountd
+  service:
+    name: mountd
+    state: reloaded

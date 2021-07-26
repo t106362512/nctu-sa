@@ -1,0 +1,38 @@
+# {{ ansible_managed }}
+{% if ldap_tls_cacert %}
+tls_cacertfile {{ ldap_tls_cacert }}
+{% if ldap_tls_reqcert %}
+tls_reqcert {{ ldap_tls_reqcert }}
+{% endif %}
+{% endif %}
+uri	{{ ldapr_uri }}
+{% if ldap_binddn %}
+binddn	{{ ldap_binddn }}
+bindpw	{{ ldap_bindpw }}
+{% endif %}
+base	{{ ldap_base }}
+{% if ldap_passwd_ou %}
+base passwd	{{ ldap_passwd_ou }},{{ ldap_base }}
+base shadow	{{ ldap_passwd_ou }},{{ ldap_base }}
+{% endif %}
+{% if ldap_group_ou %}
+base group	{{ ldap_group_ou }},{{ ldap_base }}
+{% endif %}
+filter passwd	{{ ldap_passwd_filter }}
+pam_authz_search	{{ ldap_authz_filter }}
+filter group	{{ ldap_group_filter }}
+{% if ldap_timelimit %}
+bind_timelimit {{ ldap_timelimit }}
+timelimit {{ ldap_timelimit }}
+{% endif %}
+{% if ldap_idle_timelimit %}
+idle_timelimit	{{ ldap_idle_timelimit }}
+{% endif %}
+nss_initgroups_ignoreusers	ALLLOCAL
+nss_min_uid	{{ ldap_min_uid }}
+{% if ldap_force_shell %}
+map passwd loginShell "{{ ldap_force_shell }}"
+{% endif %}
+{% if ldap_validnames %}
+validnames	{{ ldap_validnames }}
+{% endif %}

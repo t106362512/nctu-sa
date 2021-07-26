@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  author: Geoffroy Desvernay
+  description: nfs client, integrated with criecm.ldap_client for ldap autofs
+  company: Ecole Centrale Marseille
+
+  license: BSD
+
+  min_ansible_version: 2.4
+
+  platforms:
+    - name: FreeBSD
+      versions:
+        - 12.0
+        - 11.2
+        - 11.1
+        - 10.4
+        - 10.3
+    - name: Debian
+      versions:
+        - stretch
+
+  galaxy_tags:
+    - ldap
+    - nss
+    - pam
+
+dependencies: []

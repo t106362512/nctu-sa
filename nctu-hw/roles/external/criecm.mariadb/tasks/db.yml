@@ -1,0 +1,36 @@
+---
+- name: db vars
+  include_vars: db.yml
+
+- name: 'working on {{ mydb.name }}'
+  debug:
+    var: mydb
+
+# DB
+- name: new db
+  mysql_db:
+    name: '{{ mydb.name }}'
+    encoding: '{{ mydb.encoding | default("utf8") }}'
+    collation: '{{ mydb.collation | default("utf8_unicode_ci") }}'
+    state: present
+
+# and associated user
+- name: new user
+  mysql_user:
+    name: '{{ mydb.user }}'
+    priv: '{{ mydb.priv }}'
+    host: '{{ mydb.fromhost }}'
+    password: '{{ mydb.pass }}'
+    update_password: on_create
+    state: present
+
+- name: store password if new
+  copy:
+    dest: '/root/{{ mydb.name }}.user'
+    content: '{{ mydb.user }}:{{ mydb.pass }}'
+  when: '"pass" not in mariadb'
+
+- name: fact db_pass
+  set_fact:
+    db_pass: '{{ mydb.pass }}'
+  when: '"pass" not in mariadb'

@@ -1,0 +1,8 @@
+---
+db_defaults:
+  priv: '{{ mariadb.name }}.*:ALL'
+  user: '{{ mariadb.name }}'
+  fromhost: '{{ mariadb.fromhost | default("%") }}'
+  pass: '{{ lookup("password", "/dev/null length=15 chars=ascii_letters") }}'
+
+mydb: '{{ db_defaults | combine(mariadb) }}'

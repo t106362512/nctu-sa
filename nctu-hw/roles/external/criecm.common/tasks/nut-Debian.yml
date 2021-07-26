@@ -1,0 +1,22 @@
+---
+# NUT
+- name: NUT
+  apt:
+    name: nut-client
+    state: present
+- name: nut.conf
+  copy:
+    content: |
+      MODE={{ nut_mode }}
+    dest: /etc/nut/nut.conf
+- name: upsmon.conf
+  template:
+    src: upsmon.conf.j2
+    dest: /etc/nut/upsmon.conf
+    mode: '0640'
+    group: nut
+- name: activate
+  service:
+    name: nut-client
+    state: started
+    enabled: True

@@ -1,0 +1,40 @@
+---
+# defaults file for criecm.mariadb
+mariadb_version: 10.4
+mariadb_basedir: /var/db/mysql
+mariadb_datadir: /var/db/mysql
+mariadb_logdir: /var/log/mysql
+mariadb_etcdir: /etc/mysql
+mariadb_owner: mysql
+mariadb_group: mysql
+mariadb_server_ini: "{{ mariadb_datadir }}/my.cnf"
+mariadb_server_ini_section: mysqld
+# if zfs
+mariadb_zfs_base: ""
+mariadb_socket: "/tmp/mysql.sock"
+mariadb_admin_user: admin
+mariadb_admin_password: ""
+mariadb_root_password: ""
+mariadb_users: []
+mariadb_maintenance_users: []
+mariadb_dbs: []
+mariadb_use_syslog: False
+server_id:
+nagios_from: 127.0.0.1
+my_cnf_mysqld_default:
+  max_allowed_packet: "32M"
+  max_connections: "100"
+  slow_query_log_file: "{{ mariadb_logdir }}/slow.log"
+  log-warnings: "2"
+  innodb_file_per_table: "1"
+  datadir: "{{ mariadb_datadir }}"
+  tmp_table_size: "512M"
+#  innodb_buffer_pool_size: '2G'
+
+my_cnf_mysqld_zfs:
+  innodb_flush_log_at_trx_commit: "2"
+  innodb_log_group_home_dir: "{{ mariadb_innodb_logdir }}"
+  innodb_doublewrite: "0"
+  innodb_flush_method: "O_DSYNC"
+
+do_upgrade_mariadb: False

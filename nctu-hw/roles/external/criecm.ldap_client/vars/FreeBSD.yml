@@ -1,0 +1,6 @@
+---
+ldap_etcdir: /usr/local/etc/openldap
+nslcd_conf: /usr/local/etc/nslcd.conf
+pam_ldap_module_path: /usr/local/lib/pam_ldap.so
+pam_config_dirs: [ /etc/pam.d, /usr/local/etc/pam.d ]
+pam_config_dir: /usr/local/etc/pam.d

@@ -1,0 +1,103 @@
+---
+
+php_version: '{{ php_default_version }}'
+php_install_fpm: true
+php_install_xdebug: false
+php_extra_packages: []
+php_xdebug_package: null
+php_autoremove_default_pool: false
+
+# php.ini config
+php_ini:
+  'date.timezone': 'Europe/Paris'
+  'expose_php': 'Off'
+  'memory_limit': '256M'
+php_ini_fpm: {}
+php_ini_cli: {}
+
+# OpCache settings
+php_opcache_enable: "1"
+php_opcache_enable_cli: "0"
+php_opcache_memory_consumption: "96"
+php_opcache_interned_strings_buffer: "16"
+php_opcache_max_accelerated_files: "4096"
+php_opcache_max_wasted_percentage: "5"
+php_opcache_validate_timestamps: "1"
+php_opcache_revalidate_freq: "2"
+php_opcache_max_file_size: "0"
+
+# APC/APCu settings
+php_apc_enable: "1"
+php_apc_enable_cli: "0"
+php_apc_shm_size: "32M"
+php_apc_num_files_hint: "0"
+php_apc_user_entries_hint: "0"
+php_apc_user_ttl: "360"
+php_apc_ttl: "60"
+php_apc_file_update_protection: "0"
+php_apc_slam_defense: "0"
+php_apc_stat_ctime: "1"
+
+# Xdebug
+php_xdebug_auto_trace: '0'
+php_xdebug_cli_color: '0'
+php_xdebug_collect_assignments: '0'
+php_xdebug_collect_includes: '1'
+php_xdebug_collect_params: '0'
+php_xdebug_collect_return: '0'
+php_xdebug_collect_vars: '0'
+php_xdebug_coverage_enable: '1'
+php_xdebug_default_enable: '1'
+php_xdebug_dump_globals: '1'
+php_xdebug_dump_once: '1'
+php_xdebug_dump_undefined: '0'
+php_xdebug_extended_info: '1'
+php_xdebug_file_link_format: 'xdebug://%f@%l'
+php_xdebug_force_display_errors: '0'
+php_xdebug_force_error_reporting: '0'
+php_xdebug_halt_level: '0'
+php_xdebug_idekey: '*complex*'
+php_xdebug_manual_url: 'http://www.php.net'
+php_xdebug_max_nesting_level: '100'
+php_xdebug_overload_var_dump: '1'
+php_xdebug_profiler_append: '0'
+php_xdebug_profiler_enable: '0'
+php_xdebug_profiler_enable_trigger: '0'
+php_xdebug_profiler_enable_trigger_value: '""'
+php_xdebug_profiler_output_dir: '/tmp'
+php_xdebug_profiler_output_name: 'cachegrind.out.%p'
+php_xdebug_remote_autostart: '0'
+php_xdebug_remote_connect_back: '0'
+php_xdebug_remote_cookie_expire_time: '3600'
+php_xdebug_remote_enable: '0'
+php_xdebug_remote_handler: 'dbgp'
+php_xdebug_remote_host: 'localhost'
+php_xdebug_remote_log: 'xdebug.remote_log'
+php_xdebug_remote_mode: 'req'
+php_xdebug_remote_port: '9000'
+php_xdebug_scream: '0'
+php_xdebug_show_exception_trace: '0'
+php_xdebug_show_local_vars: '0'
+php_xdebug_show_mem_delta: '0'
+php_xdebug_trace_enable_trigger: '0'
+php_xdebug_trace_enable_trigger_value: '""'
+php_xdebug_trace_format: '0'
+php_xdebug_trace_options: '0'
+php_xdebug_trace_output_dir: '/tmp'
+php_xdebug_trace_output_name: 'trace.%c'
+php_xdebug_var_display_max_children: '128'
+php_xdebug_var_display_max_data: '512'
+php_xdebug_var_display_max_depth: '3'
+
+# PHP-FPM
+php_fpm_poold:
+  - name: 'www'
+    listen: '{{ php_default_fpm_sock }}'
+    pm: 'dynamic'
+    pm_max_children: 100
+    pm_start_servers: 10
+    pm_min_spare_servers: 10
+    pm_max_spare_servers: 20
+
+# Hack
+php_default_version: 'NONE'

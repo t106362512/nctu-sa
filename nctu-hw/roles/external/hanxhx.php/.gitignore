@@ -1,0 +1,6 @@
+.vagrant*
+*.swp
+*.retry
+*.log
+/filter_plugins/*.pyc
+/filter_plugins/__pycache__

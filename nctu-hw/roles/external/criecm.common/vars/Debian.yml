@@ -1,0 +1,4 @@
+---
+ldap_etcdir: /etc/ldap
+smartd_service: smartmontools
+ssh_service_name: ssh

@@ -1,0 +1,8 @@
+---
+nfs_client_mnt_path: /data/web_hosting
+ldap_autofs:
+ldap_autofs_master_map:
+ldap_base:
+ldap_binddn:
+ldap_bindpw:
+ldap_uris:

@@ -1,0 +1,75 @@
+---
+- name: ssh host keys
+  copy:
+    src: '{{ item }}'
+    dest: '/etc/ssh/{{ item | regex_replace(".*/","") }}'
+    owner: root
+    group: '0'
+    mode: '0600'
+  notify: restart sshd
+  with_fileglob:
+    - '{{ backup_dir }}/ssh/ssh_host*_key'
+  when: 'backup_dir is exists'
+
+- name: ssh host pub keys
+  copy:
+    src: '{{ item }}'
+    dest: '/etc/ssh/{{ item | regex_replace(".*/","") }}'
+    owner: root
+    group: '0'
+    mode: '0644'
+  notify: restart sshd
+  with_fileglob:
+    - '{{ backup_dir }}/ssh/ssh_host*_key.pub'
+  when: 'backup_dir is exists'
+
+- name: start sshd
+  service:
+    name: '{{ ssh_service_name | default("sshd") }}'
+    state: started
+
+- name: sshd_config
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp | default('^'+item.line | regex_replace(' .*$','')) }}"
+    line: "{{ item.line }}"
+    insertafter: "{{ item.insertafter | default(item.line | regex_replace(' .*$','')) }}"
+    state: present
+    validate: '/usr/sbin/sshd -tf %s'
+  notify: restart sshd
+  with_items:
+    - '{{ default_sshd_lines }}'
+    - '{{ sshd_lines }}'
+
+- name: ssh allowed groups
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: '^AllowGroups'
+    line: 'AllowGroups	{{ sshd_allow_groups }}'
+    insertafter: '.*PermitTunnel'
+  notify: restart sshd
+  when: sshd_allow_groups | default("") | length > 0
+  tags: sshdconf
+
+- name: config ssh root
+  file:
+    path: /root/.ssh
+    state: directory
+    mode: '0700'
+    owner: root
+    group: '0'
+
+- name: root authorized_keys
+  authorized_key:
+    key: "{{ lookup('file',item) }}"
+    user: root
+  with_fileglob:
+    - cles_ssh/*.pub
+
+- name: root de-authorized keys
+  authorized_key:
+    key: "{{ lookup('file',item) }}"
+    user: root
+    state: absent
+  with_fileglob:
+    - cles_ssh/*.del

@@ -1,0 +1,42 @@
+---
+- name: 'test -e {{ share.path }}'
+  stat:
+    path: '{{ share.path }}'
+  register: path_stat
+
+# create
+- block:
+  # need mkdir
+  - name: mkdir
+    file:
+      path: '{{ share.path }}'
+      state: directory
+      owner: '{{ share.owner | default(omit) }}'
+  when: not path_stat.stat.exists
+
+- name: nfs export
+  blockinfile:
+    path: /etc/exports
+    marker: '# {mark} ANSIBLE MANAGED BLOCK {{ share.path }}'
+    block: |
+      {% for ex in share.nfsshares %}
+      {{ share.path }} {{ ex }}
+      {% endfor %}
+  notify: reload mountd
+
+- name: cleanup zfs sharenfs props
+  block:
+    - name: look /etc/zfs/exports
+      command: 'grep ^{{ share.path }} /etc/zfs/exports'
+      failed_when: False
+      changed_when: False
+      check_mode: False
+      register: zexport
+    - name: clean sharenfs
+      zfs:
+        name: '{{ share.zfsrc }}'
+        state: present
+        extra_zfs_properties:
+          sharenfs: 'off'
+      when: zexport.rc == 0
+  when: '"zfsrc" in share'

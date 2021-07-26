@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+{% for addr in ntp_listen_addrs %}
+listen on {{ addr }}
+{% endfor %}
+{% for srv in ntp_servers %}
+server {{ srv }}
+{% endfor %}
+{% for pool in ntp_pools %}
+servers {{ pool }}
+{% endfor %}
+

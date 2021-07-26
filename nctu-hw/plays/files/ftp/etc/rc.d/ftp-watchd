@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# PROVIDE: ftp-watchd
+# REQUIRE: pure-ftpd
+# KEYWORD: ftp watch
+#
+# Add the following lines to /etc/rc.conf to enable the ftp-watchd:
+#
+
+# $ service ftp-watchd start
+# $ service ftp-watchd stop
+# $ service ftp-watchd restart
+# $ service ftp-watchd status
+# $ service ftp-watchd poll 
+
+. /etc/rc.subr
+
+name="ftp_watchd"
+desc="Pure-ftpd watcher daemon"
+rcvar="ftp_watchd_enable"
+
+load_rc_config $name
+
+# 必須綁定
+start_precmd=ftp_watchd_prestart
+stop_postcmd=ftp_watchd_stop
+
+#ftp_watchd_command=${ftp_watchd_command:-"echo ${UPLOAD_USER} has upload file ${1}! | wall"}
+
+ftp_watchd_prestart() {
+    if [ -n "$ftp_watchd_command" ]; then
+        echo '#!/bin/sh' > /tmp/fws.sh
+        echo "${ftp_watchd_command}" >> /tmp/fws.sh
+    else
+        cp /usr/local/bin/uploadscript.sh /tmp/fws.sh
+    fi
+    chmod +x /tmp/fws.sh
+}
+
+ftp_watchd_stop() {
+    pupid=/var/run/pure-uploadscript.pid
+    [ -f $pupid ] && echo "Kill: `cat ${pupid}`" || echo "你沒有使用 pure-uploadscript"
+}
+
+command="/usr/local/sbin/pure-uploadscript"
+command_args="-B -r /tmp/fws.sh"
+
+
+run_rc_command "$1"

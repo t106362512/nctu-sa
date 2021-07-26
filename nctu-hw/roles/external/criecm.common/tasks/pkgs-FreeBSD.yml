@@ -1,0 +1,42 @@
+---
+# packages ecm
+- name: 'pkg repo {{ pkg_repo_conf }}'
+  block:
+    - name: mkdir pkgrepo
+      file:
+        path: /usr/local/etc/pkg/repos
+        state: directory
+        mode: '0755'
+    - name: pkg repo ecm
+      copy:
+        src: '{{ pkg_repo_conf }}'
+        dest: '/usr/local/etc/pkg/repos/{{ pkg_repo_conf | regex_replace(".*/", "") }}'
+        validate: 'pkg -vv -C %s'
+        mode: '0644'
+  when: pkg_repo_conf | length > 0
+  tags: pkgs
+
+- name: pkg update
+  command: 'pkg update'
+  changed_when: False
+  check_mode: False
+
+# packages standard
+- name: pkgs
+  pkgng:
+    name: '{{ freebsd_base_pkgs + host_pkgs + role_pkgs + group_pkgs + pkgs }}'
+    state: '{% if do_upgrade | default(False) %}latest{% else %}present{% endif %}'
+  register: pkg_result
+  tags: pkgs
+  notify: post-upgrade
+
+- name: pkgs pkg machine physique
+  pkgng:
+    name:
+      - bsnmp-ucd
+      - dmidecode
+      - ipmitool
+      - smartmontools
+    state: present
+  when: not is_jail and not is_vm
+  tags: pkgs

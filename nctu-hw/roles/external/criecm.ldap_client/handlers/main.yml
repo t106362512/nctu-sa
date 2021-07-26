@@ -1,0 +1,15 @@
+---
+- name: restart ldap client
+  service:
+    name: nslcd
+    state: restarted
+  notify: stop nscd cache
+
+- name: stop nscd cache
+  service:
+    name: nscd
+    state: stopped
+  failed_when: False
+
+- name: rebuild login.conf database
+  command: /usr/bin/cap_mkdb /etc/login.conf

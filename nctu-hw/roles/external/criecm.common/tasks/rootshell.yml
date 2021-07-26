@@ -1,0 +1,40 @@
+---
+- name: get shell path
+  shell: 'env PATH=/bin:/usr/bin:/usr/local/bin which {{ root_shell }}'
+  changed_when: False
+  check_mode: False
+  register: shellpath
+
+- name: root shell in /etc/shells
+  lineinfile:
+    dest: /etc/shells
+    line: "{{ shellpath.stdout }}"
+
+- name: shell root
+  user:
+    name: root
+    shell: "{{ shellpath.stdout }}"
+
+- name: '/root/.{{ root_shell | basename }}rc'
+  template:
+    dest: '/root/.{{ root_shell | basename }}rc'
+    src: '{{ item }}'
+    mode: '0600'
+    owner: root
+  with_first_found:
+    - skip: True
+    - '{{ backup_dir }}/root/.{{ root_shell | basename }}rc'
+    - '{{ playbook_dir }}/templates/{{ root_shell | basename }}rc.j2'
+    - '{{ root_shell | basename }}rc.j2'
+    - 'files/{{ root_shell | basename }}rc'
+
+- name: rootfiles
+  template:
+    dest: '/root/{{ item | basename }}'
+    src: '{{ item }}'
+    force: False
+    mode: '0640'
+  with_fileglob:
+    - '{{ backup_dir }}/root/*'
+    - '{{ backup_dir }}/root/.*'
+  when: 'backup_dir is exists'

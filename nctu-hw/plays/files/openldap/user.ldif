@@ -1,0 +1,9 @@
+dn: uid=TA,ou=people,dc=1,dc=nctu,dc=cs uid: TA
+cn: TA
+objectClass: account
+objectClass: posixAccount
+objectClass: shadowAccount
+userPassword: {SSHA}6JwUrDK8c0LD7Q6x5mzhZk+soqsaMDzS uidNumber: 3000
+gidNumber: 3000
+homeDirectory: /data/home/TA
+loginShell: /bin/tcsh

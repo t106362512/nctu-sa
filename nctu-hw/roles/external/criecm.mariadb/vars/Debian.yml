@@ -1,0 +1,3 @@
+---
+mariadb_server_ini: /etc/mysql/mariadb.conf.d/50-server.cnf
+mariadb_socket: '{% if ansible_distribution_version is version_compare("10.0",">=") %}/run/mysqld/mysqld.sock{% else %}/tmp/mysql.sock{% endif %}'

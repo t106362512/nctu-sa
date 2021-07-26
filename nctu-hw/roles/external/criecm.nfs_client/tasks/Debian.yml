@@ -1,0 +1,55 @@
+---
+# config nfs services
+- block:
+  - name: installe nfs-common
+    apt:
+      name: nfs-common
+      state: present
+  - name: lockd & callback ports
+    template:
+      src: :etc:modprobe.d:nfs.conf.j2
+      dest: /etc/modprobe.d/nfs.conf
+      mode: '0600'
+      owner: root
+    notify: debian restart nfs all
+  - name: statd port
+    lineinfile:
+      dest: /etc/default/nfs-common
+      line: "{{ item }}"
+    with_items:
+      - 'STATDOPTS="-p {{ statd_port }}"'
+      - 'NEED_STATD=yes'
+      - 'NEED_IDMAPD=yes'
+    notify: debian restart nfs all
+  - name: fix start-statd
+    copy:
+      src: :usr:sbin:start-statd
+      dest: /usr/sbin/start-statd
+      mode: '0755'
+      owner: root
+  - name: idmapd
+    template:
+      src: idmapd.conf.j2
+      dest: /etc/idmapd.conf
+      mode: '0644'
+      owner: root
+    notify: debian restart nfs all
+
+  # automount LDAP
+  - block:
+    - name: install NFS/LDAP map
+      template:
+        src: autofs_ldap_auth.conf.j2
+        dest: /etc/autofs_ldap_auth.conf
+        mode: '0600'
+    - name: use it
+      lineinfile:
+        dest: /etc/default/autofs
+        line: '{{ item.k }}="{{ item.v }}"'
+        regexp: '^{{ item.k }}='
+        insertafter: '{{ item.k }}='
+      with_items:
+        - { k: AUTH_CONF_FILE, v: /etc/autofs_ldap_auth.conf }
+        - { k: LDAP_URI, v: '{{ ldap_uri }}' }
+        - { k: SEARCH_BASE, v: '{{ ldap_autofs_ou }}{{ ldap_base }}' }
+    when: ldap_autofs and ldap_autofs_ou != ""

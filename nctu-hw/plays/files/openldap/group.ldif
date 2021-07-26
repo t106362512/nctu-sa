@@ -1,0 +1,10 @@
+dn: cn=SA,ou=group,dc=1,dc=nctu,dc=cs objectClass: top
+objectClass: posixGroup
+cn: SA
+gidNumber: 19000
+dn: cn=110GIa,ou=group,dc=1,dc=nctu,dc=cs objectClass: posixGroup
+cn: 110GIa
+gidNumber: 20000
+dn: cn=TA,ou=group,dc=1,dc=nctu,dc=cs objectClass: posixGroup
+cn: TA
+gidNumber: 3000

@@ -1,0 +1,46 @@
+[mysqld]
+{% if server_id %}
+server_id={{ server_id }}
+
+{% endif %}
+{% if server_charset %}
+character-set-server={{ server_charset }}
+collation-server={{ server_collation }}
+
+{% endif %}
+log-error={{ mariadb_logdir }}/err.log
+log-warnings = 2
+general_log=0
+general_log_file={{ mariadb_logdir }}/general.log
+
+long_query_time = 2
+slow_query_log = 1
+slow_query_log_file = {{ mariadb_logdir }}/slow.log
+
+max_connections = 200
+
+max_allowed_packet = 32M
+
+;innodb_file_format=Barracuda
+innodb_file_per_table=1
+
+tmp_table_size = 512M
+;table_cache = 524288
+;query_cache_size = 512K
+;concurrent_insert=2
+;thread_cache_size = 10
+;local-infile
+innodb_buffer_pool_size = 2G
+{% if mariadb_zfs_base %}
+innodb_log_group_home_dir = {{ mariadb_basedir }}/innodb-logs
+innodb_use_native_aio=ON
+ignore_db_dirs=innodb-logs
+{% if mariadb_version is version_compare('10.3','<') %}
+;innodb_use_trim=ON
+;innodb_use_fallocate=ON
+;innodb_use_atomic_writes=ON
+{% endif %}
+; ZFS needs sync=disabled
+innodb_flush_log_at_trx_commit = 2
+innodb_doublewrite = 0
+{% endif %}
