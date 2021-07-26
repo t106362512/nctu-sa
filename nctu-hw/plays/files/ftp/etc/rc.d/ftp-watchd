@@ -5,13 +5,17 @@
 # KEYWORD: ftp watch
 #
 # Add the following lines to /etc/rc.conf to enable the ftp-watchd:
-#
+#   ftp_watchd_enable="YES"
+#   ftp_watchd_command='echo ${UPLOAD_USER} has upload file ${1}! | wall' # 若使用該設定，則不使用 uploadscript.sh
+#   ftp_watchd_command='echo ${UPLOAD_USER} has upload file ${1} now!| wall' # 該設定會讓 uploadscript.sh 額外執行其他命令
 
-# $ service ftp-watchd start
-# $ service ftp-watchd stop
-# $ service ftp-watchd restart
-# $ service ftp-watchd status
-# $ service ftp-watchd poll 
+# 
+# 若要使用該服務，請先編譯好 pure-ftpd UPLOADSCRIPT，具體編譯方法:
+#   make OPTIONS_FILE_SET='ANONRESUME PRIVSEP SCRYPT SENDFILE TLS UPLOADSCRIPT VIRTUALCHROOT' -DBATCH install clean
+# 
+# 然後得去設定 pure-ftpd.conf，具體設定如下:
+#   CallUploadScript             yes
+#
 
 . /etc/rc.subr
 
@@ -28,13 +32,15 @@ stop_postcmd=ftp_watchd_stop
 #ftp_watchd_command=${ftp_watchd_command:-"echo ${UPLOAD_USER} has upload file ${1}! | wall"}
 
 ftp_watchd_prestart() {
-    if [ -n "$ftp_watchd_command" ]; then
-        echo '#!/bin/sh' > /tmp/fws.sh
-        echo "${ftp_watchd_command}" >> /tmp/fws.sh
-    else
-        cp /usr/local/bin/uploadscript.sh /tmp/fws.sh
-    fi
+    cp /usr/local/bin/uploadscript.sh /tmp/fws.sh
+    [ -n "${ftp_watchd_command}" ] && echo -e "\n${ftp_watchd_command}" >> /tmp/fws.sh
     chmod +x /tmp/fws.sh
+    # if [ -n "${ftp_watchd_command}" ]; then
+    #     echo '#!/bin/sh' > /tmp/fws.sh
+    #     echo "${ftp_watchd_command}" >> /tmp/fws.sh
+    # else
+    #     cp /usr/local/bin/uploadscript.sh /tmp/fws.sh
+    # fi
 }
 
 ftp_watchd_stop() {

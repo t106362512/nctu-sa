@@ -105,7 +105,7 @@
         - { key: ftp_watchd_enable, value: "YES" }
         - key: ftp_watchd_command
           # value: 'echo ${UPLOAD_USER} has upload file ${1}! | wall'
-          value: "echo Someone upload file! | wall"
+          value: "echo Someone upload file now! | wall"
 
     # #直接將使用者綁在系統使用者 vip 和系統群組 ftpuser 上
     - name: Create virtual user for pure-ftpd
