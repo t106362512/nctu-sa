@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+    <title>WEB SOCKET</title>
+  </head>
+<body>
+  <input type="button" value="ws:8080" id="btn_8080">
+  <input type="button" value="ws:80" id="btn_80">
+  <input type="button" value="wss:443" id="btn_443">
+  <pre id="log"></pre>
+  <script>
+    function log(msg) {
+      document.querySelector('#log').textContent += msg + '\n';
+    }
+  
+    let btns = document.querySelectorAll('input');
+  
+    for(let i=0; i<btns.length; i++) {
+      btns[i].onclick = clickHandler;
+    }
+  
+    function clickHandler(){
+      let url = ''
+
+      if (this.id === "btn_8080") 
+        url = 'ws://1_ws.nctu.cs:8080'
+      else if(this.id === "btn_80")
+        url = 'ws://1_ws.nctu.cs:80/wsconnect'
+      else if (this.id === "btn_443")
+        url = 'wss://1.nctu.cs:443/wsconnect'
+  
+      document.querySelector('#log').textContent = 'url -> ' + url + '\n'
+  
+      let ws = new WebSocket(url);
+      ws.onopen = function() {
+        log('==========open==========');
+      };
+      ws.onclose = function() {
+        log('==========close==========');
+      };
+      ws.onmessage = function(event) {
+        log('msg -> ' + event.data);
+      };
+    }
+  </script>
+</body>
+</html>

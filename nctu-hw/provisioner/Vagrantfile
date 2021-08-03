@@ -46,7 +46,7 @@ Vagrant.configure("2") do |config|
 		end
 	end
 
-	# 因為作業需求, 請在 /etc/hosts 添加 10.113.0.2	www.1.nctu.cs
+	# 因為作業需求, 請在 /etc/hosts 添加 10.113.0.2	www.1.nctu.cs 1_ws.nctu.cs 1.nctu.cs
 	config.vm.define "www" do |www|
 		www.vm.hostname = "www.1.nctu.cs"
 		www.vm.define vm_name = "WWW01-NCTU-CS"
