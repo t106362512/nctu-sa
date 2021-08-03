@@ -11,7 +11,7 @@ openssl req \
     -extensions v3_ca \
     -keyout ${ROOTCA_QUICK_KEY} -out ${ROOTCA_QUICK_CERT}
 
-chmod ${USER} ${ROOTCA_QUICK_KEY}
+chown ${USER} ${ROOTCA_QUICK_KEY}
 chmod og-rwx ${ROOTCA_QUICK_KEY}
 
 # 參考輸入
