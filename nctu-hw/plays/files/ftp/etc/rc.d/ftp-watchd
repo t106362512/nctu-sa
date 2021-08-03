@@ -6,9 +6,7 @@
 #
 # Add the following lines to /etc/rc.conf to enable the ftp-watchd:
 #   ftp_watchd_enable="YES"
-#   ftp_watchd_command='echo ${UPLOAD_USER} has upload file ${1}! | wall' # 若使用該設定，則不使用 uploadscript.sh
 #   ftp_watchd_command='echo ${UPLOAD_USER} has upload file ${1} now!| wall' # 該設定會讓 uploadscript.sh 額外執行其他命令
-
 # 
 # 若要使用該服務，請先編譯好 pure-ftpd UPLOADSCRIPT，具體編譯方法:
 #   make OPTIONS_FILE_SET='ANONRESUME PRIVSEP SCRYPT SENDFILE TLS UPLOADSCRIPT VIRTUALCHROOT' -DBATCH install clean
@@ -24,32 +22,23 @@ desc="Pure-ftpd watcher daemon"
 rcvar="ftp_watchd_enable"
 
 load_rc_config $name
+pidfile=${pidfile:-"/var/run/pure-uploadscript.pid"}
 
 # 必須綁定
 start_precmd=ftp_watchd_prestart
 stop_postcmd=ftp_watchd_stop
 
-#ftp_watchd_command=${ftp_watchd_command:-"echo ${UPLOAD_USER} has upload file ${1}! | wall"}
-
 ftp_watchd_prestart() {
     cp /usr/local/bin/uploadscript.sh /tmp/fws.sh
     [ -n "${ftp_watchd_command}" ] && echo -e "\n${ftp_watchd_command}" >> /tmp/fws.sh
     chmod +x /tmp/fws.sh
-    # if [ -n "${ftp_watchd_command}" ]; then
-    #     echo '#!/bin/sh' > /tmp/fws.sh
-    #     echo "${ftp_watchd_command}" >> /tmp/fws.sh
-    # else
-    #     cp /usr/local/bin/uploadscript.sh /tmp/fws.sh
-    # fi
 }
 
 ftp_watchd_stop() {
-    pupid=/var/run/pure-uploadscript.pid
-    [ -f $pupid ] && echo "Kill: `cat ${pupid}`" || echo "你沒有使用 pure-uploadscript"
+    [ -f $pidfile ] && echo "Kill: `cat ${pidfile}`"
 }
 
 command="/usr/local/sbin/pure-uploadscript"
 command_args="-B -r /tmp/fws.sh"
-
 
 run_rc_command "$1"

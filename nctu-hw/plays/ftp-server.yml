@@ -7,7 +7,7 @@
         name: curl, security/py-cryptography
 
     - name: Fetch /usr/ports
-      command: portsnap fetch extract
+      command: portsnap auto
 
     - name: Install /usr/ports/ftp/pure-ftpd
       shell: make OPTIONS_FILE_SET='ANONRESUME PRIVSEP SCRYPT SENDFILE TLS UPLOADSCRIPT VIRTUALCHROOT' -DBATCH install clean
@@ -27,10 +27,10 @@
         -keyout "{{ pureftpd_tls_certificate_pem }}" -out "{{ pureftpd_tls_certificate_pem }}"
         -subj "/C={{ pureftpd_tls_certificate_openssl.country | default('') }}/ST={{ pureftpd_tls_certificate_openssl.state | default('') }}/L={{ pureftpd_tls_certificate_openssl.locality | default('') }}/O={{ pureftpd_tls_certificate_openssl.org | default('') }}/OU={{ pureftpd_tls_certificate_openssl.unit | default('') }}/CN={{ pureftpd_tls_certificate_openssl.fqdn }}"
 
-    # - name: Push pure-ftpd.conf
-    #   copy:
-    #     src: "{{ playbook_dir }}/files/ftp/etc/pure-ftpd.conf"
-    #     dest: /usr/local/etc/pure-ftpd.conf
+    - name: Push pure-ftpd.conf
+      copy:
+        src: "{{ playbook_dir }}/files/ftp/etc/pure-ftpd.conf"
+        dest: /usr/local/etc/pure-ftpd.conf
 
     - name: Push custom etc and rc.d
       copy:
@@ -44,16 +44,13 @@
         dest: /usr/local/bin/uploadscript.sh
         mode: "750"
 
-    # #必須絕對路徑
-    # - name: Set pure-uploadscript
-    #   command: pure-uploadscript -Br /usr/ports/ftp/pure-ftpd/test.sh
-
     - name: Add some group for pure-ftpd
       group:
         name: "{{ item }}"
       with_items:
         - ftpuser
         - sysuser
+        - vipuser
 
     - name: Add some user for pure-ftpd
       user:
@@ -61,13 +58,13 @@
         groups: "{{ item.groups }}"
         shell: "{{ '/bin/sh' if item.name == 'sysadm' else '/usr/sbin/nologin' }}"
         create_home: false
-        system: true
         home: /home/ftp
         password: "{{ password | password_hash('sha512') }}"
       with_items:
         - { name: ftp, groups: ftpuser } #For anonymous.
-        - { name: vip, groups: ftpuser }
-        - { name: sysadm, groups: ftpuser }
+        - { name: ftp-vip1, groups: ftpuser, vipuser }
+        - { name: ftp-vip2, groups: ftpuser, vipuser }
+        - { name: sysadm, groups: ftpuser, vipuser, sysuser }
 
     - name: Create ftp dir for pure-ftpd service
       file:
@@ -77,15 +74,14 @@
         mode: "{{ item.mode }}"
         state: directory
       with_items:
-        - { dir: /home/ftp, owner: sysadm, group: sysadm, mode: "755" }
+        - { dir: /home/ftp, owner: sysadm, group: sysuser, mode: "755" }
         - { dir: /home/ftp/public, owner: sysadm, group: ftpuser, mode: "775" }
         - { dir: /home/ftp/upload, owner: sysadm, group: ftpuser, mode: "1775" }
-        - { dir: /home/ftp/hidden, owner: sysadm, group: vip, mode: "751" }
+        - { dir: /home/ftp/hidden, owner: sysadm, group: vipuser, mode: "771" }
         - dir: /home/ftp/hidden/treasure
           owner: sysadm
-          group: vip
-          mode: "755"
-
+          group: vipuser
+          mode: "775"
     - name: Create the SECRET in hidden.treasure.secret
       copy:
         content: "This SECRET create on {{ ansible_date_time.date }}."
@@ -114,13 +110,13 @@
       with_items:
         - vuser: ftp-vip1
           vpasswd: "{{ password }}"
-          ruser: vip
+          ruser: ftp-vip1
           rgroup: ftpuser
           rhomedir: /home/ftp
 
         - vuser: ftp-vip2
           vpasswd: "{{ password }}"
-          ruser: vip
+          ruser: ftp-vip2
           rgroup: ftpuser
           rhomedir: /home/ftp
 
