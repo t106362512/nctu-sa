@@ -182,6 +182,11 @@
               rewrite ^/wordpress(.*)$ /wordpress/index.php?q=$1;
             }
 
+            location ~ ^/~(.+?)(.*)?$ {
+              alias /data/web_hosting/home/$1/public_html/$2;
+              autoindex off;
+            }
+
         - listen: "443 ssl http2"
           server_name: "{{ server_ip }}"
           root: /home/www/public_html/ip-access

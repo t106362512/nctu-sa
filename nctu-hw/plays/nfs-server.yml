@@ -10,6 +10,7 @@
         - "{{ nfs_exports | map(attribute='export') }}"
         - "{{ nfs_shraes | map(attribute='path') }}"
 
+    # #因為 freebsd 的 /etc/exports (NFS Server 服務) 似乎需要根據每一個裝置才能設定 acl, 故使用 nullfs 來偽裝裝置.
     - name: Mount an NullFS volume
       ansible.posix.mount:
         src: "{{ item.export }}"
@@ -18,6 +19,7 @@
         fstype: nullfs
       with_items: "{{ nfs_exports }}"
 
+    # #因為沒有使用 ldap 服務,因此先把 nslcd 給關掉.
     - name: Set rc.conf
       lineinfile:
         dest: /etc/rc.conf
@@ -25,6 +27,8 @@
         regexp: "^{{ item.key }}="
       with_items:
         - { key: nfs_reserved_port_only, value: "YES" }
+        - { key: nslcd_enable, value: "NO" }
+        - { key: nslcd_supervisor, value: "NO" }
 
   roles:
     - role: criecm.nfs_server

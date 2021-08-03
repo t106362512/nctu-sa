@@ -1,8 +1,9 @@
 - hosts: nfsclient
   become: true
-  roles:
-    - criecm.nfs_client
+  # roles:
+  #   - criecm.nfs_client
   tasks:
+    # #因為沒有使用 ldap 服務,因此先把 nslcd 給關掉.
     - name: Set rc.conf
       lineinfile:
         dest: /etc/rc.conf
@@ -10,17 +11,23 @@
         regexp: "^{{ item.key }}="
       with_items:
         - { key: autofs_enable, value: "YES" }
-        - { key: nfscbd_enable, value: "YES" }
+        - { key: nslcd_enable, value: "NO" }
+        - { key: nslcd_supervisor, value: "NO" }
 
-    - name: Push auto_master
+    - name: Push autofs
       copy:
-        dest: /etc/auto_master
-        content: |+
-          # $FreeBSD: releng/12.2/usr.sbin/autofs/auto_master 337749 2018-08-14 13:52:08Z trasz $
-          #
-          # Automounter master map, see auto_master(5) for details.
-          #
-          /mnt/net            -hosts          -nosuid,intr
+        dest: "{{ item.dest }}"
+        content: "{{ item.content }}"
+      with_items:
+        - dest: /etc/auto_master
+          content: |
+            /net            -hosts          -nobrowse,nosuid,intr
+            /data           /etc/auto.nfs   -intr,nfsv4,timeout=10,debug
+
+        - dest: /etc/auto.nfs
+          content: |
+            home                            nfs.1.nctu.cs:/vol/home
+            web_hosting                     nfs.1.nctu.cs:/vol/web_hosting
 
     - name: Restart autofs services
       service:
@@ -31,33 +38,3 @@
         - { name: automount, state: started }
         - { name: automountd, state: restarted }
         - { name: autounmountd, state: restarted }
-
-    # - name: Install tree
-    #   become: true
-    #   pkgng:
-    #     name: tree
-    #     state: present
-
-    - name: Get NFS dir
-      # command: tree -L 5 /net/nfs.1.nctu.cs
-      command: >
-        ls -lh
-        /mnt/net/nfs.1.nctu.cs/vol
-        /mnt/net/nfs.1.nctu.cs/net/home
-        /mnt/net/nfs.1.nctu.cs/net/data
-
-      register: found_directories
-
-    - name: List NFS dir
-      debug:
-        msg: "{{ found_directories }} "
-
-    # - name: Includ nfs server var
-    #   include_vars: "{{ inventory_dir }}/group_vars/nfs/vars.yml"
-
-    # - name: Mount an NFS volume
-    #   ansible.posix.mount:
-    #     src: "nfs.1.nctu.cs:{{ nfs_shrae_dir }}"
-    #     path: "{{ nfs_client_mnt_path }}"
-    #     state: mounted
-    #     fstype: nfs
