@@ -44,6 +44,10 @@ Vagrant.configure("2") do |config|
 			# pure-ftpd PassivePortRange
 			nfs.vm.network :forwarded_port, guest: i, host: i
 		end
+		# 執行 vagrant 前, 請先設定環境變數 export VAGRANT_EXPERIMENTAL="disks"
+		nfs.vm.disk :disk, name: "a1", size: "1GB"
+		nfs.vm.disk :disk, name: "a2", size: "1GB"
+		nfs.vm.synced_folder "../plays/files/hw/3", "/vagrant"
 	end
 
 	# 因為作業需求, 請在 /etc/hosts 添加 10.113.0.2	www.1.nctu.cs 1_ws.nctu.cs 1.nctu.cs

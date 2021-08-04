@@ -2,6 +2,26 @@
 - hosts: nfs
   become: true
   tasks:
+    - name: Create zfs mirror pool
+      shell: |
+        zpool create mypool mirror /dev/ada1 /dev/ada2
+        zfs set compression=lz4 atime=off mountpoint=/home/ftp mypool
+
+    - name: Create zfs dataset
+      shell: |
+        zfs create {{ item.dataset }}
+        zfs set compression=lz4 atime=off mountpoint={{ item.mountpoint }} {{ item.dataset }}
+      with_items:
+        - { dataset: mypool/public, mountpoint: /home/ftp/public }
+        - { dataset: mypool/upload, mountpoint: /home/ftp/upload }
+        - { dataset: mypool/hidden, mountpoint: /home/ftp/hidden }
+
+    - name: Push zfsbak to /usr/local/bin
+      copy:
+        mode: 755
+        src: "{{ playbook_dir }}/files/hw/3/zfsbak.sh"
+        dest: /usr/local/bin/zfsbak
+
     - name: Install package
       pkgng:
         name: curl, security/py-cryptography
