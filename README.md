@@ -3,36 +3,46 @@
 ## 📝 作業進度
 
 - [x] HW2 Shell script
-- [ ] HW3 File server
-- [ ] HW4 Web server
-- [ ] HW5 NFS server
+- [x] HW3 File server
+- [x] HW4 Web server
+- [x] HW5 NFS server
 
 ## 📝 作業補充說明
 
 - HW2 Shell script
 
-  - 可以參考 [init.yml](nctu-hw/plays/init.yml), 以推送送腳本和發送命令給每台 server
-  - 全部做完, 腳本檔案都在 [nctu-hw/plays/files/hw/2](nctu-hw/plays/files/hw/2)
+  - 作業需求可參考 [2020-SA-One liner script & System Info](https://nasa.cs.nctu.edu.tw/sa/2020/slides/HW2.pdf)
+  - 建立與實作可以參考 [init.yml](nctu-hw/plays/init.yml), 以推送送腳本和發送命令給每台 server
+  - 腳本檔案都在 [nctu-hw/plays/files/hw/2](nctu-hw/plays/files/hw/2)
 
 - HW3 File server
 
-  - 目前僅剩 ZFS 系列尚未做完
-  - 可以參考 [ftp-server.yml](nctu-hw/plays/ftp-server.yml) 以建立 ftp server
-  - 其餘的設定擋與腳本都在 [nctu-hw/plays/files/ftp](nctu-hw/plays/files/ftp)
+  - 作業需求可參考 [2020-SA-File server & Backup](https://nasa.cs.nctu.edu.tw/sa/2020/slides/HW3.pdf)
+  - 手動實作與詳細記錄可參考 [HW3-File-server-Backup](https://wax-note-1ec.notion.site/HW3-File-server-Backup-120d610a3fbd4f9f81e18d232847d55e)
+  - 建立與實作可以參考 [ftp-server.yml](nctu-hw/plays/ftp-server.yml) 以建立 ftp server
+  - pure-ftpd 的設定擋與腳本都在 [nctu-hw/plays/files/ftp](nctu-hw/plays/files/ftp)
+  - zfs 備份 cli 則是在 [nctu-hw/plays/files/hw/3/zfsbak.sh](nctu-hw/plays/files/hw/3/zfsbak.sh), 在部署主機上直接使用指令 `zfsbak` 即可
 
 - HW4 Web server
 
+  - 作業需求可參考 [2020-SA-Web Services](https://nasa.cs.nctu.edu.tw/sa/2020/slides/HW4.pdf)
+  - 手動實作與詳細記錄可參考 [HW4-Web Services](https://wax-note-1ec.notion.site/HW4-Web-Services-16a0c20e51b84bdda6636b9a5c5523fe)
   - 使用 nginx 與 php-fpm 來搞 web server
-  - Web socket 還沒做
-  - Wordprees 僅做好引導自動化, 進到 wp 再去設定資料庫
+  - Web socket server 目前得在部署主機上使用指令 `bash /var/www/wsdemo/startws.sh` 以開啟 ws server.(通常都使用 socket.io 之類的玩意, 所以就懶得處理)
+  - Wordprees 僅做好引導自動化, 請在相關服務建立好後，再進到 Wordprees 去設定資料庫
   - 可以參考 [web-server.yml](nctu-hw/plays/web-server.yml) 以建立 web server
-  - 其餘檔案都在 [nctu-hw/plays/files/hw/4](nctu-hw/plays/files/hw/4)
+  - Basic App Router 之作業檔案在 [nctu-hw/plays/files/hw/4/index.php](nctu-hw/plays/files/hw/4/index.php)
+  - WebSocket 之作業檔案在 [nctu-hw/plays/files/hw/4/index.html](nctu-hw/plays/files/hw/4/index.php)
 
 - HW5 NFS server
 
-  - 目前僅剩 /vol/web_hosting 與 /data/web_hosting 之內容不確定
+  - 作業需求可參考 [2020-SA-NIS & NFS](https://nasa.cs.nctu.edu.tw/sa/2020/slides/HW5v2.pdf)
+  - 手動實作與詳細記錄可參考 [HW5-NFS](https://wax-note-1ec.notion.site/HW5-NFS-e153515e90f74f628ca6193a67544461)
   - 可以參考 [nfs-server.yml](nctu-hw/plays/nfs-server.yml) 以建立 nfs server
-  - 可以參考 [nfs-client.yml](nctu-hw/plays/nfs-client.yml) 以讓 nfs client 掛載 nfs
+  - 可以參考 [nfs-client.yml](nctu-hw/plays/nfs-client.yml) 以讓 nfs client 掛載 nfs (使用 autofs)
+  - 目前沒有做 NIS, 因為後續的 NA 有 LDAP 能做出 NIS 的效果
+  - 目前有改 /data/web_hosting 與 /data/home 以符合作業需求
+  - 目前需求 5-2 得要修改為 https://{ID}.nctu.cs/{pure-ftpd_user}/uploadscript.log
 
 - 共通說明
 
@@ -42,10 +52,12 @@
 
     ```bash
     cd nctu-hw/provisioner
-    vagrant up # 建立所有 Vagrantfile 的 vm
-    vagrant ssh nfs # ssh 到 nfs vm
-    vagrant halt # 關閉所有 Vagrantfile 的 vm
-    vagrant destroy -f # 刪除所有 Vagrantfile 的 vm
+    export VAGRANT_EXPERIMENTAL="disks" # 開啟建立硬碟功能, 否則 vagrant 無法幫你建立額外的硬碟
+    vagrant up                          # 建立所有 Vagrantfile 的 vm
+    vagrant reload                      # 重新載入 vagrant 設定並重開機
+    vagrant ssh nfs                     # ssh 到 nfs vm
+    vagrant halt                        # 關閉所有 Vagrantfile 的 vm
+    vagrant destroy -f                  # 刪除所有 Vagrantfile 的 vm
     ```
 
   - 我把 Ansible 工作目錄設計在 [plays](nctu-hw/plays) 上, 因此請先到該目錄在下達指令
@@ -138,6 +150,12 @@ pipx install ansible
 
 ```bash
 pipx inject ansible $(cat nctu-hw/requirements.txt|tr '\n' ' ')
+```
+
+1. 安裝 Ansible playbook roles(基本上不用再裝, 有使用的 roles 我已經包在專案內並在 ansible.cfg 設定使用位置了)
+
+```bash
+ansible-galaxy install -r nctu-hw/roles/requirements.yml -p nctu-hw/roles/external
 ```
 
 1. 安裝 Vagrant 相依插件
